@@ -9,7 +9,7 @@
 
 </head>
 <style>
-    /*
+   /*
      * 0. IMPORTS & GLOBAL RESET
      * ---------------------------------------------------------------
      */
@@ -92,6 +92,15 @@
     .hidden {
         display: none !important;
     }
+    
+    /* Corrección del Ojo de Contraseña */
+    input[type="password"] {
+        color-scheme: dark; /* Hace el icono del ojo blanco/claro */
+    }
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear {
+        filter: invert(1);
+    }
     /* === FIN: _base.css === */
 
 
@@ -102,7 +111,7 @@
         max-width: 1600px;
         margin: 0 auto;
         padding: 20px;
-        padding-top: 40px; /* Reducido de 80px para un aspecto más compacto */
+        padding-top: 40px; 
         transition: filter var(--transition-slow);
     }
 
@@ -1894,16 +1903,92 @@
     text-align: left !important;
     vertical-align: middle;
 }
-/* Estilos para la lista de cambio de costos */
+/* Estilos para la lista de cambio de costos y Checkboxes Personalizados */
 .cost-change-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: var(--bg-primary);
-    padding: 12px;
+    padding: 12px 15px; /* Un poco más de padding lateral */
     border-radius: var(--radius-sm);
     margin-bottom: 8px;
     border: 1px solid var(--border-glass);
+    gap: 15px; /* Espacio entre el checkbox y el texto */
+    transition: background-color 0.2s ease;
+}
+
+.cost-change-item:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-color: var(--border-highlight);
+}
+
+/* === ESTILOS NUEVOS PARA EL CHECKBOX NEON === */
+.cost-update-checkbox {
+    /* Elimina el estilo por defecto del navegador */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    width: 22px;
+    height: 22px;
+    min-width: 22px; /* Evita que se aplaste */
+    
+    border: 2px solid var(--text-secondary);
+    border-radius: 6px; /* Bordes ligeramente redondeados */
+    background-color: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    display: grid;
+    place-content: center;
+}
+
+/* Efecto Hover */
+.cost-update-checkbox:hover {
+    border-color: var(--primary-cyan);
+    box-shadow: 0 0 8px var(--glow-cyan);
+}
+
+/* Estado Marcado (Checked) */
+.cost-update-checkbox:checked {
+    background-color: var(--primary-cyan);
+    border-color: var(--primary-cyan);
+    box-shadow: 0 0 10px var(--glow-cyan);
+}
+
+/* El símbolo de check (Palomita) */
+.cost-update-checkbox::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    transform: scale(0); /* Oculto por defecto */
+    transition: 0.2s transform ease-in-out;
+    box-shadow: inset 1em 1em var(--bg-dark); /* Color del check */
+    transform-origin: center;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    background-color: var(--bg-dark);
+}
+
+.cost-update-checkbox:checked::before {
+    transform: scale(1); /* Mostrar al marcar */
+}
+
+/* Ajuste para el texto "Seleccionar Todos" */
+.select-all-container {
+    margin-bottom: 15px; 
+    padding-bottom: 15px; 
+    border-bottom: 1px solid var(--border-glass); 
+    display: flex; 
+    align-items: center; 
+    gap: 15px;
+}
+
+.select-all-label {
+    cursor: pointer; 
+    color: var(--text-primary); 
+    font-weight: 600;
+    font-size: 0.95rem;
+    user-select: none;
 }
 
 .cost-change-name {
@@ -2775,8 +2860,76 @@
     // --- ALMACEN CENTRAL & DISCREPANCIES ---
     let pendingCostUpdates = [];
     async function handleSyncWarehouseCatalog() { showLoading('Conectando con Almacén Central...'); try { const response = await ApiClient.getWarehouseData(Session.businessName, Session.password); if (response.status === 'success' && response.products) { localStorage.setItem(`ipv_warehouse_cache_${Session.businessName}`, JSON.stringify(response.products)); if (typeof updateWarehouseAutocomplete === 'function') { updateWarehouseAutocomplete(response.products); } const updates = checkCostDiscrepancies(response.products); hideLoading(); renderApp(StateManager.getState(), Session); if (updates.length > 0) { showCostUpdateModal(updates); } else { showAlert("Sincronizado correctamente. No hay cambios en los costos."); } } else { throw new Error(response.message || "No se recibieron datos."); } } catch (e) { hideLoading(); showAlert("Error al sincronizar: " + e.message); } }
-    function showCostUpdateModal(updates) { pendingCostUpdates = updates; const listContainer = document.getElementById('costUpdateList'); if (!listContainer) return; listContainer.innerHTML = updates.map(u => `<div class="cost-change-item"><div class="cost-change-name">${escapeHtml(u.name)}</div><div class="cost-values"><span class="old-cost">$${Number(u.oldCost).toFixed(2)}</span><span class="arrow-sep">➔</span><span class="new-cost">$${Number(u.newCost).toFixed(2)}</span></div></div>`).join(''); toggleModal('costUpdateModal', true); }
-    function confirmCostUpdates() { if (pendingCostUpdates.length === 0) return; let count = 0; pendingCostUpdates.forEach(u => { StateManager.updateProductFieldById(u.id, 'cost', u.newCost); count++; }); toggleModal('costUpdateModal', false); showAlert(`¡Éxito! Se actualizaron los costos de ${count} productos.`); pendingCostUpdates = []; }
+   function showCostUpdateModal(updates) {
+        pendingCostUpdates = updates;
+        const listContainer = document.getElementById('costUpdateList');
+        if (!listContainer) return;
+        
+        // Agregamos un botón de "Seleccionar Todo" al principio para comodidad
+        let html = `
+            <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-glass); display:flex; align-items:center; gap: 10px;">
+                <input type="checkbox" id="selectAllCosts" class="cost-update-checkbox" checked>
+                <label for="selectAllCosts" style="cursor:pointer; color: var(--text-secondary); font-weight: 600;">Seleccionar Todos</label>
+            </div>
+        `;
+
+        // Generamos la lista con checkboxes
+        html += updates.map(u => `
+            <div class="cost-change-item">
+                <input type="checkbox" class="cost-update-checkbox item-cost-cb" data-id="${u.id}" checked>
+                <div class="cost-change-name">${escapeHtml(u.name)}</div>
+                <div class="cost-values">
+                    <span class="old-cost">$${Number(u.oldCost).toFixed(2)}</span>
+                    <span class="arrow-sep">➔</span>
+                    <span class="new-cost">$${Number(u.newCost).toFixed(2)}</span>
+                </div>
+            </div>
+        `).join('');
+
+        listContainer.innerHTML = html;
+
+        // Lógica para el botón "Seleccionar Todo"
+        const selectAllCb = document.getElementById('selectAllCosts');
+        if(selectAllCb) {
+            selectAllCb.addEventListener('change', (e) => {
+                const checkboxes = listContainer.querySelectorAll('.item-cost-cb');
+                checkboxes.forEach(cb => cb.checked = e.target.checked);
+            });
+        }
+
+        toggleModal('costUpdateModal', true);
+    }
+    function confirmCostUpdates() {
+        // 1. Buscamos todos los checkboxes marcados que sean de items (.item-cost-cb)
+        const checkedBoxes = document.querySelectorAll('.item-cost-cb:checked');
+        
+        if (checkedBoxes.length === 0) {
+            return showAlert("No has seleccionado ningún producto para actualizar.");
+        }
+
+        // 2. Creamos un Set con los IDs seleccionados
+        const selectedIds = new Set(Array.from(checkedBoxes).map(cb => cb.dataset.id));
+
+        // 3. Filtramos la lista original usando los IDs seleccionados
+        const updatesToApply = pendingCostUpdates.filter(u => selectedIds.has(String(u.id)));
+
+        let count = 0;
+        updatesToApply.forEach(u => {
+            StateManager.updateProductFieldById(u.id, 'cost', u.newCost);
+            count++;
+        });
+
+        toggleModal('costUpdateModal', false);
+        
+        // Mensaje personalizado
+        if (count < pendingCostUpdates.length) {
+            showAlert(`¡Éxito! Se actualizaron los costos de ${count} productos. (Ignorados: ${pendingCostUpdates.length - count})`);
+        } else {
+            showAlert(`¡Éxito! Se actualizaron los costos de ${count} productos.`);
+        }
+        
+        pendingCostUpdates = [];
+    }
     function updateWarehouseAutocomplete(whProducts) { const dataList = document.getElementById('warehouse-list'); if (!dataList) return; dataList.innerHTML = ''; whProducts.forEach(p => { const option = document.createElement('option'); option.value = p.name; option.label = `Stock: ${p.stock} | Costo: $${p.cost}`; dataList.appendChild(option); }); }
     function checkCostDiscrepancies(whProducts) { const localData = StateManager.getState(); const updates = []; const whMap = new Map(whProducts.map(p => [p.name.toLowerCase().trim(), p])); (localData.products || []).forEach(localProd => { if (localProd.isActive !== false) { const match = whMap.get(localProd.name.toLowerCase().trim()); if (match && Math.abs((localProd.cost || 0) - (match.cost || 0)) > 0.01) { updates.push({ id: localProd.id, name: localProd.name, oldCost: localProd.cost, newCost: match.cost }); } } }); return updates; }
     function getCachedWarehouseProduct(productName) { try { const raw = localStorage.getItem(`ipv_warehouse_cache_${Session.businessName}`); if (!raw) return null; const cache = JSON.parse(raw); return cache.find(p => p.name.toLowerCase().trim() === productName.toLowerCase().trim()); } catch (e) { return null; } }
