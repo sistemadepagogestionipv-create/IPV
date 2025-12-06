@@ -2201,6 +2201,8 @@
     </section>
 </nav>
 
+
+
 <main class="container hidden" id="container">
     <div class="button-container">
         <button data-action="deleteSelectedBtn" aria-label="Eliminar productos seleccionados" title="Eliminar productos seleccionados"><svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-trash"></use></svg></button>
@@ -2367,7 +2369,27 @@
     </section>
 
 </main> <!-- Cierre del main#container -->
+<!-- MÓDULO DE INSUMOS / CONSUMO INTERNO -->
+<section class="section-box">
+    <h2>Consumo de Insumos (Descuento de Almacén)</h2>
+    <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px;">
+        Registra aquí materiales gastables (servilletas, cajas, nylon) para descontarlos del inventario sin afectar la venta.
+    </p>
+    
+    <!-- Lista visual de insumos agregados hoy -->
+    <div id="insumos-list" class="gastos-list"></div>
 
+    <!-- Formulario rápido para agregar insumo -->
+    <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+        <div style="flex-grow: 1; position: relative;">
+            <input type="text" id="insumo-name" class="form-input" placeholder="Nombre del insumo..." list="warehouse-list" autocomplete="off">
+        </div>
+        <input type="number" id="insumo-qty" class="form-input" placeholder="Cant." style="width: 80px;">
+        <button id="addInsumoBtn" class="btn btn-primary" style="width: auto; padding: 10px 20px;">
+            <svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-add"></use></svg>
+        </button>
+    </div>
+</section>
 <div id="scroll-fab-container">
     <button id="scrollToBottomBtn" title="Ir al final">
         <svg width="24" height="24"><use xlink:href="#icon-chevron-down"></use></svg>
@@ -2476,13 +2498,13 @@
 
 <!-- Lógica Principal de la App -->
 <script>
-    (function() { 
-    const APP_VERSION = "3.2"; 
+
+(function() { 
+    const APP_VERSION = "3.4 - Smart Autocomplete"; 
 
     // =========================================================
     // CONFIGURACIÓN DEL PIN DE ADMINISTRADOR (ESTÁTICO)
     // =========================================================
-    // Modifica este valor por la clave que desees.
     const STATIC_ADMIN_PIN = "8608"; 
     // =========================================================
 
@@ -2720,7 +2742,36 @@
 
     // --- LOGIC & STATE ---
     function calculateProductMetrics(product) { const start = Number(product.start || 0); const entrada = Number(product.entrada || 0); const cost = Number(product.cost || 0); const price = Number(product.price || 0); const vendido = (typeof product.finales === 'number') ? Math.max(0, start + entrada - product.finales) : 0; const importe = vendido * price; const ganancias = importe - (vendido * cost); return { ...product, vendido, importe, ganancias }; }
-    function calculateTotals(appData) { if (!appData) return {}; const { products = [], gastos = [] } = appData; const totals = { totalImporte: 0, totalGanancias: 0, totalStockCost: 0, totalStockValue: 0, gastosOperativos: 0, recogidas: 0 }; const categoriasIgnoradas = ['insumos', 'materia prima', 'uso interno', 'cocina', 'no venta']; (products || []).filter(p => p.isActive !== false).forEach(p => { const metrics = calculateProductMetrics(p); const finales = typeof p.finales === 'number' ? p.finales : (p.start || 0); const cat = (p.category || '').toLowerCase().trim(); const esInsumo = categoriasIgnoradas.includes(cat); totals.totalStockCost += finales * (p.cost || 0); if (!esInsumo) { totals.totalImporte += metrics.importe; totals.totalGanancias += metrics.ganancias; totals.totalStockValue += finales * (p.price || 0); } }); (gastos || []).filter(g => g.isActive !== false).forEach(g => { if (g.type === 'recogida') totals.recogidas += g.amount || 0; else totals.gastosOperativos += g.amount || 0; }); totals.gananciaNetaOperativa = totals.totalGanancias - totals.gastosOperativos; totals.efectivoTeoricoCaja = totals.totalImporte - totals.gastosOperativos - totals.recogidas; return totals; }
+    function calculateTotals(appData) { 
+        if (!appData) return {}; 
+        const { products = [], gastos = [] } = appData; 
+        const totals = { totalImporte: 0, totalGanancias: 0, totalStockCost: 0, totalStockValue: 0, gastosOperativos: 0, recogidas: 0 }; 
+        const categoriasIgnoradas = ['insumos', 'materia prima', 'uso interno', 'cocina', 'no venta', 'insumointerno']; 
+        
+        (products || []).filter(p => p.isActive !== false).forEach(p => { 
+            const metrics = calculateProductMetrics(p); 
+            const finales = typeof p.finales === 'number' ? p.finales : (p.start || 0); 
+            const cat = (p.category || '').toLowerCase().trim(); 
+            const esInsumo = categoriasIgnoradas.includes(cat); 
+            
+            // Los insumos no se suman al costo del stock ni al valor de stock de venta porque no se venden
+            totals.totalStockCost += finales * (p.cost || 0); 
+            if (!esInsumo) { 
+                totals.totalImporte += metrics.importe; 
+                totals.totalGanancias += metrics.ganancias; 
+                totals.totalStockValue += finales * (p.price || 0); 
+            } 
+        }); 
+        
+        (gastos || []).filter(g => g.isActive !== false).forEach(g => { 
+            if (g.type === 'recogida') totals.recogidas += g.amount || 0; 
+            else totals.gastosOperativos += g.amount || 0; 
+        }); 
+        
+        totals.gananciaNetaOperativa = totals.totalGanancias - totals.gastosOperativos; 
+        totals.efectivoTeoricoCaja = totals.totalImporte - totals.gastosOperativos - totals.recogidas; 
+        return totals; 
+    }
     
     let appData = {}; let subscribers = [];
     const StateManager = { subscribe(callback) { subscribers.push(callback); }, _notify() { subscribers.forEach(callback => callback(structuredClone(appData))); }, getState() { return structuredClone(appData); }, setState(data) { appData = data || {}; this._notify(); }, triggerUpdate() { this._notify(); }, updateProductFieldById(productId, field, value) { if (appData.isClosed) return; let parsedValue = value; if (field === 'finales') parsedValue = value === '' ? null : Number(value); else if (['start', 'entrada'].includes(field)) parsedValue = Number(value) || 0; else if (['cost', 'price'].includes(field)) parsedValue = parseFloat(value) || 0; const newProducts = (appData.products || []).map(p => (String(p.id) === String(productId)) ? { ...p, [field]: parsedValue, lastModified: new Date().toISOString() } : p); appData = { ...appData, products: newProducts }; this._notify(); }, addProduct(details) { const newProducts = details.names.map(name => { const startValue = Number(details.start) || 0; return { id: generateUUID(), name, category: details.category, start: startValue, cost: Number(details.cost) || 0, price: Number(details.price) || 0, entrada: 0, finales: startValue, isActive: true, lastModified: new Date().toISOString() }; }); const updatedProducts = [...(appData.products || []), ...newProducts]; const updatedCategories = details.category && !(appData.categories || []).includes(details.category) ? [...(appData.categories || []), details.category] : (appData.categories || []); appData = { ...appData, products: updatedProducts, categories: updatedCategories }; this._notify(); }, addGasto(description, amount, type) { const newGasto = { id: generateUUID(), description, amount, type: type || 'gasto', isActive: true, lastModified: new Date().toISOString() }; appData = { ...appData, gastos: [...(appData.gastos || []), newGasto] }; this._notify(); }, deleteProductById(id) { appData = { ...appData, products: (appData.products || []).map(p => (String(p.id) === String(id)) ? { ...p, isActive: false, lastModified: new Date().toISOString() } : p) }; this._notify(); }, deleteSelectedProducts(ids) { appData = { ...appData, products: (appData.products || []).map(p => ids.has(String(p.id)) ? { ...p, isActive: false, lastModified: new Date().toISOString() } : p) }; this._notify(); }, deleteGastoById(id) { appData = { ...appData, gastos: (appData.gastos || []).map(g => (String(g.id) === String(id)) ? { ...g, isActive: false, lastModified: new Date().toISOString() } : g) }; this._notify(); }, closeDay() { appData = { ...appData, isClosed: true }; this._notify(); }, updateNotes(notes) { if (appData.notas !== notes) { appData = { ...appData, notas: notes }; this._notify(); } }, updateDiferenciaCaja(tipo, monto) { const montoVal = tipo === 'ninguna' ? 0 : parseFloat(monto) || 0; appData = { ...appData, predefinedNotes: { ...(appData.predefinedNotes || {}), diferenciaCaja: { tipo, monto: montoVal } } }; this._notify(); }, updatePizzaCalcs(pizzaData) { appData = { ...appData, pizzaCalcs: { ...pizzaData, lastModified: new Date().toISOString() } }; this._notify(); } };
@@ -2763,8 +2814,86 @@
     function switchLoginView(showCreate) { DOM.loginForm?.classList.toggle('hidden', showCreate); DOM.createForm?.classList.toggle('hidden', !showCreate); }
     function showMainApp() { DOM.loginWrapper?.classList.add('hidden'); DOM.header?.classList.remove('hidden'); DOM.container?.classList.remove('hidden'); }
     function showLoginScreen() { DOM.loginWrapper?.classList.remove('hidden'); DOM.header?.classList.add('hidden'); DOM.container?.classList.add('hidden'); }
-    function renderApp(data, session) { if (!data || !session || !session.businessName) return; DOM.businessTitle.textContent = `IPV - ${session.businessName.replace(/_/g, ' ')}`; if (DOM.notasDia && document.activeElement !== DOM.notasDia) { DOM.notasDia.value = data.notas || ''; } const diferencia = data.predefinedNotes?.diferenciaCaja || { tipo: 'ninguna', monto: 0 }; if (DOM.diferenciaTipo) { DOM.diferenciaTipo.value = diferencia.tipo; } if (DOM.diferenciaMonto) { DOM.diferenciaMonto.value = diferencia.monto || ''; DOM.diferenciaMonto.disabled = data.isClosed || diferencia.tipo === 'ninguna'; } renderProductTable(data.products || [], session.isAdmin, data.isClosed); renderGastosList(data.gastos || [], data.isClosed); renderTotals(data); updateAdminVisibility(session.isAdmin); populateCategoryDropdown(data.categories); }
-    function renderProductTable(products, isAdmin, isClosed) { const tbody = DOM.productList; if (!tbody) return; let activeProducts = (products || []).filter(p => p.isActive !== false); if (isZeroStockHidden) { activeProducts = activeProducts.filter(p => p.finales !== 0); } const totalCount = activeProducts.length; const zeroStockCount = activeProducts.filter(p => p.finales === 0).length; if (DOM.totalProductsCount) { DOM.totalProductsCount.textContent = totalCount > 0 ? `(${totalCount})` : ''; } if (DOM.zeroStockCount) { DOM.zeroStockCount.textContent = zeroStockCount > 0 ? `(${zeroStockCount})` : ''; } if (activeProducts.length === 0) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:20px;">No hay productos que coincidan con los filtros.</td></tr>`; return; } const productsByCategory = activeProducts.reduce((acc, p) => { (acc[p.category || "General"] = acc[p.category || "General"] || []).push(p); return acc; }, {}); const sortedCategories = Object.keys(productsByCategory).sort((a, b) => a.localeCompare(b)); tbody.innerHTML = ""; sortedCategories.forEach(category => { const isCollapsed = collapsedCategories.has(category); const catRow = tbody.insertRow(); catRow.className = "category-row"; catRow.innerHTML = `<td colspan="11"><span class="toggle-icon">${isCollapsed ? "►" : "▼"}</span>${category}</td>`; catRow.addEventListener('click', () => toggleCategory(category)); productsByCategory[category].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => { const row = createProductRow(p, isAdmin, isClosed); if (isCollapsed) row.classList.add('hidden'); tbody.appendChild(row); }); }); }
+    
+    function renderApp(data, session) { 
+        if (!data || !session || !session.businessName) return; 
+        DOM.businessTitle.textContent = `IPV - ${session.businessName.replace(/_/g, ' ')}`; 
+        if (DOM.notasDia && document.activeElement !== DOM.notasDia) { DOM.notasDia.value = data.notas || ''; } 
+        const diferencia = data.predefinedNotes?.diferenciaCaja || { tipo: 'ninguna', monto: 0 }; 
+        if (DOM.diferenciaTipo) { DOM.diferenciaTipo.value = diferencia.tipo; } 
+        if (DOM.diferenciaMonto) { DOM.diferenciaMonto.value = diferencia.monto || ''; DOM.diferenciaMonto.disabled = data.isClosed || diferencia.tipo === 'ninguna'; } 
+        renderProductTable(data.products || [], session.isAdmin, data.isClosed); 
+        renderInsumosList(data.products || [], data.isClosed); // RENDERIZAR LISTA DE INSUMOS
+        renderGastosList(data.gastos || [], data.isClosed); 
+        renderTotals(data); 
+        updateAdminVisibility(session.isAdmin); 
+        populateCategoryDropdown(data.categories); 
+    }
+
+    function renderProductTable(products, isAdmin, isClosed) { 
+        const tbody = DOM.productList; 
+        if (!tbody) return; 
+        // FILTRO: No mostrar Insumos Internos en la tabla principal
+        let activeProducts = (products || []).filter(p => p.isActive !== false && p.category !== 'InsumoInterno'); 
+        if (isZeroStockHidden) { activeProducts = activeProducts.filter(p => p.finales !== 0); } 
+        const totalCount = activeProducts.length; 
+        const zeroStockCount = activeProducts.filter(p => p.finales === 0).length; 
+        if (DOM.totalProductsCount) { DOM.totalProductsCount.textContent = totalCount > 0 ? `(${totalCount})` : ''; } 
+        if (DOM.zeroStockCount) { DOM.zeroStockCount.textContent = zeroStockCount > 0 ? `(${zeroStockCount})` : ''; } 
+        if (activeProducts.length === 0) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:20px;">No hay productos que coincidan con los filtros.</td></tr>`; return; } 
+        const productsByCategory = activeProducts.reduce((acc, p) => { (acc[p.category || "General"] = acc[p.category || "General"] || []).push(p); return acc; }, {}); 
+        const sortedCategories = Object.keys(productsByCategory).sort((a, b) => a.localeCompare(b)); 
+        tbody.innerHTML = ""; 
+        sortedCategories.forEach(category => { 
+            const isCollapsed = collapsedCategories.has(category); 
+            const catRow = tbody.insertRow(); 
+            catRow.className = "category-row"; 
+            catRow.innerHTML = `<td colspan="11"><span class="toggle-icon">${isCollapsed ? "►" : "▼"}</span>${category}</td>`; 
+            catRow.addEventListener('click', () => toggleCategory(category)); 
+            productsByCategory[category].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => { 
+                const row = createProductRow(p, isAdmin, isClosed); 
+                if (isCollapsed) row.classList.add('hidden'); 
+                tbody.appendChild(row); 
+            }); 
+        }); 
+    }
+
+    function renderInsumosList(products, isClosed) {
+        const listDiv = document.getElementById('insumos-list');
+        if (!listDiv) return;
+        listDiv.innerHTML = '';
+        
+        // Filtramos SOLO los insumos internos
+        const insumos = (products || []).filter(p => p.isActive !== false && p.category === 'InsumoInterno');
+        
+        if (insumos.length === 0) {
+            listDiv.innerHTML = '<p style="text-align:center; color: var(--text-secondary); font-style:italic;">No hay insumos retirados hoy.</p>';
+            return;
+        }
+
+        const disabledAttr = isClosed ? 'disabled' : '';
+
+        insumos.forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'gasto-item';
+            // Estilo visual diferenciado (borde azul cian en vez de magenta de gastos)
+            item.style.borderLeft = '3px solid var(--primary-cyan)'; 
+            
+            item.innerHTML = `
+                <span>
+                    ${escapeHtml(p.name)} 
+                    <span class="gasto-tag" style="background: rgba(0, 224, 255, 0.2); color: var(--primary-cyan);">
+                        Retirado: ${p.entrada}
+                    </span>
+                </span>
+                <button class="delete-button" data-action="deleteProduct" data-product-id="${p.id}" ${disabledAttr}>
+                    &times;
+                </button>
+            `;
+            listDiv.appendChild(item);
+        });
+    }
+
     function createProductRow(product, isAdmin, isClosed) { const row = document.createElement('tr'); row.dataset.productId = product.id; row.dataset.category = product.category || 'General'; const p = calculateProductMetrics(product); if (typeof p.finales === 'number' && p.finales > (Number(p.start || 0) + Number(p.entrada || 0))) { row.classList.add('fila-error'); } else if (typeof p.finales === 'number' && p.finales === 0) { row.classList.add('fila-stock-cero'); } const finalesDisplayValue = (p.finales === null || p.finales === undefined) ? '' : p.finales; const disabledAttr = isClosed ? 'disabled' : ''; let stockIndicator = ''; if (typeof getCachedWarehouseProduct === 'function') { const whData = getCachedWarehouseProduct(p.name); if (whData) { const stock = Number(whData.stock || 0); let colorClass = 'wh-ok'; if (stock <= 0) colorClass = 'wh-empty'; else if (stock < (whData.minStock || 5)) colorClass = 'wh-low'; stockIndicator = `<span class="wh-indicator ${colorClass}" data-stock="Almacén: ${stock} uds."></span>`; } } row.innerHTML = `<td><input type="checkbox" class="product-select-checkbox" ${disabledAttr}></td><td><div class="name-cell-wrapper"><span class="name-cell-text" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>${stockIndicator}</div></td><td><input type="number" value="${p.start}" data-field="start" data-product-id="${p.id}" ${disabledAttr}></td><td><input type="number" value="${p.entrada}" data-field="entrada" data-product-id="${p.id}" ${disabledAttr}></td><td><input type="number" value="${finalesDisplayValue}" data-field="finales" data-product-id="${p.id}" ${disabledAttr}></td><td>${p.vendido}</td><td class="admin-only"><input type="number" step="0.01" value="${(p.cost || 0).toFixed(2)}" data-field="cost" data-product-id="${p.id}" ${disabledAttr}></td><td><input type="number" step="0.01" value="${(p.price || 0).toFixed(2)}" data-field="price" data-product-id="${p.id}" ${disabledAttr}></td><td>${p.importe.toFixed(2)}</td><td class="admin-only">${p.ganancias.toFixed(2)}</td><td><button class="delete-button" data-action="deleteProduct" ${disabledAttr}>&times;</button></td>`; return row; }
     function renderGastosList(gastos, isClosed) { const listDiv = DOM.gastosList; listDiv.innerHTML = ''; const disabledAttr = isClosed ? 'disabled' : ''; (gastos || []).filter(g => g.isActive !== false).forEach((g) => { const item = document.createElement('div'); item.className = 'gasto-item'; const type = g.type || 'gasto'; const tagText = type === 'recogida' ? 'Recogida' : 'Gasto'; item.innerHTML = `<span>${escapeHtml(g.description || '')} <span class="gasto-tag gasto-type--${type}">${tagText}</span></span><span>$${(g.amount || 0).toFixed(2)}</span><button class="delete-button" data-action="deleteGasto" data-gasto-id="${g.id}" ${disabledAttr}>&times;</button>`; listDiv.appendChild(item); }); }
     function renderTotals(data) { const totals = calculateTotals(data); DOM.totalImporte.textContent = (totals.totalImporte || 0).toFixed(2); DOM.totalGanancias.textContent = (totals.totalGanancias || 0).toFixed(2); DOM.totalGastosOperativos.textContent = (totals.gastosOperativos || 0).toFixed(2); DOM.gananciaNetaOperativa.textContent = (totals.gananciaNetaOperativa || 0).toFixed(2); DOM.totalRecogidas.textContent = (totals.recogidas || 0).toFixed(2); DOM.efectivoTeoricoCaja.textContent = (totals.efectivoTeoricoCaja || 0).toFixed(2); DOM.totalStockCost.textContent = (totals.totalStockCost || 0).toFixed(2); DOM.totalStockValue.textContent = (totals.totalStockValue || 0).toFixed(2); }
@@ -2865,7 +2994,6 @@
         const listContainer = document.getElementById('costUpdateList');
         if (!listContainer) return;
         
-        // Agregamos un botón de "Seleccionar Todo" al principio para comodidad
         let html = `
             <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-glass); display:flex; align-items:center; gap: 10px;">
                 <input type="checkbox" id="selectAllCosts" class="cost-update-checkbox" checked>
@@ -2873,7 +3001,6 @@
             </div>
         `;
 
-        // Generamos la lista con checkboxes
         html += updates.map(u => `
             <div class="cost-change-item">
                 <input type="checkbox" class="cost-update-checkbox item-cost-cb" data-id="${u.id}" checked>
@@ -2888,7 +3015,6 @@
 
         listContainer.innerHTML = html;
 
-        // Lógica para el botón "Seleccionar Todo"
         const selectAllCb = document.getElementById('selectAllCosts');
         if(selectAllCb) {
             selectAllCb.addEventListener('change', (e) => {
@@ -2900,17 +3026,13 @@
         toggleModal('costUpdateModal', true);
     }
     function confirmCostUpdates() {
-        // 1. Buscamos todos los checkboxes marcados que sean de items (.item-cost-cb)
         const checkedBoxes = document.querySelectorAll('.item-cost-cb:checked');
         
         if (checkedBoxes.length === 0) {
             return showAlert("No has seleccionado ningún producto para actualizar.");
         }
 
-        // 2. Creamos un Set con los IDs seleccionados
         const selectedIds = new Set(Array.from(checkedBoxes).map(cb => cb.dataset.id));
-
-        // 3. Filtramos la lista original usando los IDs seleccionados
         const updatesToApply = pendingCostUpdates.filter(u => selectedIds.has(String(u.id)));
 
         let count = 0;
@@ -2921,7 +3043,6 @@
 
         toggleModal('costUpdateModal', false);
         
-        // Mensaje personalizado
         if (count < pendingCostUpdates.length) {
             showAlert(`¡Éxito! Se actualizaron los costos de ${count} productos. (Ignorados: ${pendingCostUpdates.length - count})`);
         } else {
@@ -2934,6 +3055,19 @@
     function checkCostDiscrepancies(whProducts) { const localData = StateManager.getState(); const updates = []; const whMap = new Map(whProducts.map(p => [p.name.toLowerCase().trim(), p])); (localData.products || []).forEach(localProd => { if (localProd.isActive !== false) { const match = whMap.get(localProd.name.toLowerCase().trim()); if (match && Math.abs((localProd.cost || 0) - (match.cost || 0)) > 0.01) { updates.push({ id: localProd.id, name: localProd.name, oldCost: localProd.cost, newCost: match.cost }); } } }); return updates; }
     function getCachedWarehouseProduct(productName) { try { const raw = localStorage.getItem(`ipv_warehouse_cache_${Session.businessName}`); if (!raw) return null; const cache = JSON.parse(raw); return cache.find(p => p.name.toLowerCase().trim() === productName.toLowerCase().trim()); } catch (e) { return null; } }
 
+    // --- NUEVA FUNCIÓN DE VALIDACIÓN DE NOMBRE ---
+    function validateNameWithWarehouse(name) {
+        const cache = localStorage.getItem(`ipv_warehouse_cache_${Session.businessName}`);
+        if (!cache) return true; // Si no hay caché, no podemos validar, asumimos que está bien
+        try {
+            const products = JSON.parse(cache);
+            // Buscamos coincidencia exacta (insensible a mayúsculas)
+            return products.some(p => p.name.toLowerCase().trim() === name.toLowerCase().trim());
+        } catch (e) {
+            return true;
+        }
+    }
+
     async function handleCreateBusiness() { const businessName = document.getElementById('newBusinessName').value.trim().replace(/\s+/g, '_'); const password = document.getElementById('newPassword').value; const adminEmail = document.getElementById('newAdminEmail').value; const enableEncryption = document.getElementById('enableEncryption').checked; if (!businessName || !password || !adminEmail) { return showAlert('Todos los campos son obligatorios.'); } let encryptedSecretKey = null; if (enableEncryption) { const secretKey = generateUUID() + generateUUID(); localStorage.setItem(`ipv_secret_key_${businessName}`, secretKey); encryptedSecretKey = CryptoJS.AES.encrypt(secretKey, password).toString(); await showAlert('¡Encriptación activada!', 'Advertencia de Seguridad'); } showLoading('Creando negocio...'); try { const response = await ApiClient.createBusiness(businessName, password, adminEmail, enableEncryption, encryptedSecretKey); hideLoading(); if (response.status === 'success') { await showAlert(response.message || '¡Negocio creado con éxito! Ahora puedes iniciar sesión.'); document.getElementById('businessNameInput').value = businessName; switchLoginView(false); } else { throw new Error(response.message || 'No se pudo crear el negocio.'); } } catch (error) { hideLoading(); showAlert(`Error al crear: ${error.message}`); } }
     async function handleDeleteBusiness() { const businessName = document.getElementById('businessNameInput').value.trim(); if (!businessName) return showAlert('Por favor, escribe el nombre del negocio.'); if (!await showConfirm(`¿Estás SEGURO de que quieres eliminar "${businessName}"?`)) return; const creationKey = await showPrompt('Introduce la clave maestra para confirmar.'); if (!creationKey) return; showLoading('Eliminando negocio...'); try { const response = await ApiClient.deleteBusiness(businessName, creationKey); if (response.status === 'success') { await showAlert('Negocio eliminado.'); location.reload(); } else { throw new Error(response.message || 'Error al eliminar.'); } } catch (error) { showAlert(`Error: ${error.message}`); } finally { hideLoading(); } }
     async function toggleAdminMode() { if (Session.isAdmin) { Session.setAdmin(false); updateAdminVisibility(false); } else { toggleModal('pinModal', true); } }
@@ -2941,9 +3075,38 @@
     function startLocalMode() { Session.businessName = "local_mode"; Session.password = "local"; Session.setAdmin(true); Session.save(); window.location.reload(); }
     function changeDay(offset) { const dateInput = document.getElementById('dateInput'); const currentDate = new Date(dateInput.value + 'T12:00:00Z'); currentDate.setUTCDate(currentDate.getUTCDate() + offset); dateInput.value = currentDate.toISOString().split('T')[0]; dateInput.dispatchEvent(new Event('change')); }
     async function syncToCloud(button) { if (Session.businessName === "local_mode") return showAlert("El modo local no se sincroniza."); if (!navigator.onLine) return showAlert("Sin internet."); button.disabled = true; updateSyncIndicator(true, true); try { const dataToSync = StateManager.getState(); const encryptedPayload = encryptData(dataToSync, Session.encryptionKey); if (!encryptedPayload) throw new Error("Fallo encriptación."); const syncPayload = { isEncrypted: !!Session.encryptionKey, payload: encryptedPayload }; const response = await ApiClient.sync(Session.businessName, Session.password, Session.currentDate, syncPayload); if (response.status === 'success') { updateSyncIndicator(false); showAlert("Sincronización completada."); } else { throw new Error(response.message || 'Error servidor.'); } } catch (error) { showAlert(`Error: ${error.message}`); updateSyncIndicator(true); } finally { button.disabled = false; } }
-    function addProduct() { const namesInput = document.getElementById('modal-product-name'); const names = namesInput.value.split(',').map(name => name.trim()).filter(Boolean); if (names.length === 0) return showAlert('Introduce un nombre.'); StateManager.addProduct({ names, category: document.getElementById('modal-product-category').value, start: document.getElementById('modal-product-start').value, cost: document.getElementById('modal-product-cost').value, price: document.getElementById('modal-product-price').value }); document.getElementById('addProductForm').reset(); namesInput.focus(); }
+    
+    // --- MODIFICADO: Add Product con Validación ---
+    async function addProduct() { 
+        const namesInput = document.getElementById('modal-product-name'); 
+        const names = namesInput.value.split(',').map(name => name.trim()).filter(Boolean); 
+        
+        if (names.length === 0) return showAlert('Introduce un nombre.'); 
+        
+        // Validación contra el Almacén
+        const unknownProducts = names.filter(name => !validateNameWithWarehouse(name));
+        
+        if (unknownProducts.length > 0) {
+            const msg = `Los siguientes productos no coinciden con el catálogo del Almacén:\n\n${unknownProducts.join(', ')}\n\n¿Deseas agregarlos de todas formas? (Esto podría causar duplicados)`;
+            if (!(await showConfirm(msg))) {
+                return; // Cancelar si el usuario dice NO
+            }
+        }
+
+        StateManager.addProduct({ 
+            names, 
+            category: document.getElementById('modal-product-category').value, 
+            start: document.getElementById('modal-product-start').value, 
+            cost: document.getElementById('modal-product-cost').value, 
+            price: document.getElementById('modal-product-price').value 
+        }); 
+        
+        document.getElementById('addProductForm').reset(); 
+        namesInput.focus(); 
+    }
+
     function addGasto() { const description = document.getElementById('gastos-description').value; const amount = parseFloat(document.getElementById('gastos-amount').value); if (!description || isNaN(amount)) return showAlert('Faltan datos.'); StateManager.addGasto(description, amount, document.getElementById('gasto-type').value); toggleModal('gastos-modal', false); document.getElementById('addGastoForm').reset(); }
-    async function handleDeleteProduct(target) { const productId = target.closest('tr').dataset.productId; const productName = target.closest('tr').cells[1].textContent; if (await showConfirm(`¿Eliminar "${productName}"?`)) StateManager.deleteProductById(productId); }
+    async function handleDeleteProduct(target) { const productId = target.closest('tr')?.dataset.productId || target.dataset.productId; const row = target.closest('tr'); const div = target.closest('.gasto-item'); let productName = "Producto"; if (row) productName = row.cells[1].textContent; if (div) productName = div.querySelector('span').textContent.split('Retirado')[0].trim(); if (await showConfirm(`¿Eliminar "${productName}"?`)) StateManager.deleteProductById(productId); }
     async function handleDeleteGasto(target) { if (await showConfirm('¿Eliminar gasto?')) StateManager.deleteGastoById(target.dataset.gastoId); }
     async function handleDeleteSelected() { const idsToDelete = getSelectedProductIds(); if (idsToDelete.size === 0) return showAlert('Nada seleccionado.'); if (await showConfirm(`¿Eliminar ${idsToDelete.size} productos?`)) StateManager.deleteSelectedProducts(idsToDelete); }
     function handleShowZeroStock() { const zeroStockProducts = StateManager.getState().products.filter(p => p.finales === 0 && p.isActive); renderZeroStockList(zeroStockProducts); toggleModal('zeroStockModal', true); }
@@ -2955,8 +3118,117 @@
     function toggleHideZeroStock(target) { isZeroStockHidden = !isZeroStockHidden; target.classList.toggle('active', isZeroStockHidden); const eyeIcon = document.getElementById('eye-icon'); if (eyeIcon) { eyeIcon.setAttribute('xlink:href', isZeroStockHidden ? '#icon-eye-off' : '#icon-eye'); } target.title = isZeroStockHidden ? "Mostrar todo" : "Ocultar stock cero"; renderApp(StateManager.getState(), Session); }
     async function handleManualStatusCheck() { showLoading('Verificando...'); try { await StatusChecker.check(); const modal = document.getElementById('payment-lock-modal'); if (modal && modal.style.display === 'flex') { showAlert("Acceso restringido.", "Aviso"); } } catch (error) { showAlert(`Error: ${error.message}`); } finally { hideLoading(); } }
 
+    // --- MODIFICADO: Add Insumo con Validación ---
+    async function handleAddInsumo() {
+        const nameInput = document.getElementById('insumo-name');
+        const qtyInput = document.getElementById('insumo-qty');
+        
+        const name = nameInput.value.trim();
+        const qty = parseFloat(qtyInput.value);
+
+        if (!name) return showAlert("Selecciona un insumo del almacén.");
+        if (!qty || qty <= 0) return showAlert("Introduce una cantidad válida.");
+
+        // Validación contra el Almacén
+        if (!validateNameWithWarehouse(name)) {
+            const msg = `El insumo "${name}" no aparece exactamente así en el catálogo del Almacén.\n\n¿Estás seguro de agregarlo con este nombre?`;
+            if (!(await showConfirm(msg))) {
+                return; // Cancelar si el usuario dice NO
+            }
+        }
+
+        const newInsumo = {
+            id: generateUUID(),
+            name: name,
+            category: 'InsumoInterno', 
+            start: 0,
+            cost: 0, 
+            price: 0, 
+            entrada: qty, 
+            finales: 0,
+            isActive: true,
+            lastModified: new Date().toISOString()
+        };
+
+        const currentState = StateManager.getState();
+        const updatedProducts = [...(currentState.products || []), newInsumo];
+        const updatedCategories = currentState.categories || [];
+        if (!updatedCategories.includes('InsumoInterno')) {
+            updatedCategories.push('InsumoInterno');
+        }
+
+        StateManager.setState({ 
+            ...currentState, 
+            products: updatedProducts,
+            categories: updatedCategories
+        });
+
+        nameInput.value = '';
+        qtyInput.value = '';
+        nameInput.focus();
+        
+        showAlert(`Retirado: ${qty} de ${name}`);
+    }
+
+    // --- HTML INJECTION FOR INSUMOS ---
+    function injectInsumosHTML() {
+        const existingSection = document.querySelector('#insumos-section-box');
+        if(existingSection) return; 
+
+        const container = document.getElementById('container');
+        if(!container) return;
+
+        const sections = container.querySelectorAll('.section-box');
+        let referenceNode = null;
+        if(sections.length > 0) {
+            referenceNode = sections[0]; 
+        }
+
+        const section = document.createElement('section');
+        section.className = 'section-box';
+        section.id = 'insumos-section-box';
+        section.innerHTML = `
+            <h2>Consumo de Insumos (Descuento de Almacén)</h2>
+            <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px;">
+                Registra aquí materiales gastables (servilletas, cajas, nylon) para descontarlos del inventario sin afectar la venta.
+            </p>
+            <div id="insumos-list" class="gastos-list"></div>
+            <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+                <div style="flex-grow: 1; position: relative;">
+                    <!-- Se asegura el uso del datalist -->
+                    <input type="text" id="insumo-name" class="form-input" placeholder="Nombre del insumo..." list="warehouse-list" autocomplete="off">
+                </div>
+                <input type="number" id="insumo-qty" class="form-input" placeholder="Cant." style="width: 80px;">
+                <button id="addInsumoBtn" class="btn btn-primary" style="width: auto; padding: 10px 20px;">
+                    <svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-add"></use></svg>
+                </button>
+            </div>
+        `;
+
+        if(referenceNode) {
+            container.insertBefore(section, referenceNode);
+        } else {
+            container.appendChild(section);
+        }
+    }
+
     const actionHandlers = { 'switchToCreate': () => switchLoginView(true), 'switchToLogin': () => switchLoginView(false), 'localMode': startLocalMode, 'deleteBusinessBtn': handleDeleteBusiness, 'addProductBtn': () => toggleModal("product-modal", true), 'deleteSelectedBtn': handleDeleteSelected, 'toggleAllBtn': toggleAllCategories, 'showZeroStockBtn': handleShowZeroStock, 'toggle-hide-zero-stock': toggleHideZeroStock, 'toggle-admin-mode': toggleAdminMode, 'openCalculatorBtn': () => toggleModal("calculatorModal", true), 'openBillCounterBtn': () => toggleModal("billCounterModal", true), 'refresh-data': handleRefreshData, 'deleteProduct': (target) => handleDeleteProduct(target), 'deleteGasto': (target) => handleDeleteGasto(target), 'addGastoBtn': () => toggleModal("gastos-modal", true), 'menu-sync-warehouse': handleSyncWarehouseCatalog, 'confirmCostUpdate': confirmCostUpdates, 'closeCostModal': () => toggleModal('costUpdateModal', false), 'menu-audit-costs': handleAuditCosts, 'menu-audit-products': () => toggleModal('dataAuditModal', true), 'menu-reset-day': handleResetDay, 'menu-end-of-day': handleEndOfDay, 'menu-clear-cache': handleClearCache, 'menu-change-pin': handleChangePin, 'menu-financial-summary': () => handleFinancialSummary(), 'menu-performance-report': () => toggleModal('performanceReportModal', true), 'menu-compare-periods': () => toggleModal('comparisonModal', true), 'menu-copy-report': handleCopyReport, 'menu-export-day': handleExportDay, 'menu-import-day': handleImportDay, 'menu-about': handleShowAbout, 'menu-change-password': handleChangePassword, 'runAuditBtn': runProductAudit, 'generatePerformanceReportBtn': generatePerformanceReport, 'runComparisonBtn': runComparison, 'copyZeroStockList': handleCopyZeroStockList, 'check-payment-status': handleManualStatusCheck, 'syncButton': (target) => syncToCloud(target), 'logoutBtn': logout, 'open-business-admin': openBusinessAdminPanel, 'toggle-worker': handleUpdateWorker, 'revoke-worker': handleUpdateWorker, 'add-worker-prompt': handleAddWorkerPrompt };
-    function setupEventListeners() { document.body.addEventListener("submit", handleFormSubmit); document.body.addEventListener("click", handleGlobalClick); document.body.addEventListener("change", handleGlobalChange); document.getElementById("searchInput")?.addEventListener("keyup", e => filterProducts(e.target.value)); let notesTimeout; document.getElementById("notas-dia")?.addEventListener("input", e => { clearTimeout(notesTimeout); notesTimeout = setTimeout(() => StateManager.updateNotes(e.target.value), 300); }); document.getElementById('menu-toggle')?.addEventListener('change', e => { if (!e.target.checked) { document.querySelector('.header-menu')?.scrollTo(0, 0); } }); document.getElementById('enableEncryption')?.addEventListener('change', (e) => { const warning = document.getElementById('encryptionWarning'); if (warning) { warning.classList.toggle('hidden', !e.target.checked); } }); }
+    function setupEventListeners() { 
+        document.body.addEventListener("submit", handleFormSubmit); 
+        document.body.addEventListener("click", handleGlobalClick); 
+        document.body.addEventListener("change", handleGlobalChange); 
+        document.getElementById("searchInput")?.addEventListener("keyup", e => filterProducts(e.target.value)); 
+        let notesTimeout; 
+        document.getElementById("notas-dia")?.addEventListener("input", e => { clearTimeout(notesTimeout); notesTimeout = setTimeout(() => StateManager.updateNotes(e.target.value), 300); }); 
+        document.getElementById('menu-toggle')?.addEventListener('change', e => { if (!e.target.checked) { document.querySelector('.header-menu')?.scrollTo(0, 0); } }); 
+        document.getElementById('enableEncryption')?.addEventListener('change', (e) => { const warning = document.getElementById('encryptionWarning'); if (warning) { warning.classList.toggle('hidden', !e.target.checked); } }); 
+        
+        // Listeners para Insumos
+        document.getElementById('addInsumoBtn')?.addEventListener('click', handleAddInsumo);
+        document.getElementById('insumo-qty')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') handleAddInsumo();
+        });
+    }
     function handleGlobalClick(e) { if (e.target.matches('input[type="number"], input[type="text"]')) e.target.select(); const target = e.target.closest("[data-action], .modal-backdrop, .modal .close, .filter-buttons button"); if (!target) return; const action = target.dataset.action; if (action) { if (action.startsWith('bc_')) { handleBillCounterActions(action, { toggleModal }); return; } const handler = actionHandlers[action]; if (handler) { handler(target); return; } } else if (target.matches(".modal-backdrop, .modal .close")) { const modal = target.closest(".modal"); if (modal && !modal.classList.contains('is-persistent')) { const modalId = modal.id; if (modalId && !['alertModal', 'confirmModal', 'promptModal'].includes(modalId)) toggleModal(modalId, false); } } else if (target.matches(".filter-buttons button")) { const period = target.dataset.period; if (period) handleFinancialSummary(period); } }
     function handleGlobalChange(e) { const target = e.target; if (target.matches("#product-list input[data-field]")) { const { productId, field } = target.dataset; if (productId && field) StateManager.updateProductFieldById(productId, field, target.value); } else if (target.id === "selectAllCheckbox") { toggleAllCheckboxes(target.checked); } if (target.matches("#note-diferencia-tipo, #note-diferencia-monto")) { const tipo = document.getElementById("note-diferencia-tipo")?.value; const monto = document.getElementById("note-diferencia-monto")?.value; StateManager.updateDiferenciaCaja(tipo, monto); } }
     function handleFormSubmit(e) { e.preventDefault(); switch (e.target.id) { case 'loginForm': handleLogin(); break; case 'createForm': handleCreateBusiness(); break; case 'pinForm': verifyPin(); break; case 'addProductForm': addProduct(); break; case 'addGastoForm': addGasto(); break; } }
@@ -2977,6 +3249,10 @@
 
     async function main() {
         if (checkInitialLockStatus()) { console.log("Bloqueado al inicio."); return; }
+        
+        // Inyectar HTML de Insumos antes de inicializar la lógica
+        injectInsumosHTML();
+
         setAppVersion(APP_VERSION); setupEventListeners();
         const calculatorFunctions = initializeCalculators({ toggleModal });
         pizzaDataLoader = calculatorFunctions.loadPizzaData;
@@ -3009,6 +3285,7 @@
     function setupScrollAndHeaderListeners() { const header = document.getElementById('header'); if (!header) return; let lastScrollTop = 0; window.addEventListener('scroll', () => { let scrollTop = window.pageYOffset || document.documentElement.scrollTop; header.classList.toggle('header-hidden', scrollTop > lastScrollTop && scrollTop > 100); lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; const scrollToTopBtn = document.getElementById('scrollToTopBtn'); const scrollToBottomBtn = document.getElementById('scrollToBottomBtn'); const scrollHeight = document.documentElement.scrollHeight; const clientHeight = document.documentElement.clientHeight; if (scrollToTopBtn) { scrollToTopBtn.classList.toggle('visible', scrollTop > 200); } if (scrollToBottomBtn) { scrollToBottomBtn.classList.toggle('visible', scrollTop + clientHeight < scrollHeight - 200); } }); document.getElementById('scrollToTopBtn')?.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); }); document.getElementById('scrollToBottomBtn')?.addEventListener('click', () => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }); }
 
     })();
+
 </script>
 
 </body>
