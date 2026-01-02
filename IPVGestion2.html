@@ -2173,6 +2173,9 @@
     <section class="header-menu-section">
         <h4>Herramientas</h4>
         <button class="header-button" data-action="menu-sync-warehouse" style="border-left: 3px solid #E100FF;">⬇ Descargar Catálogo Almacén</button>
+        <button class="header-button" data-action="menu-generate-stock-pdf" style="border-left: 3px solid #00E0FF;">
+        📄 Generar Hoja de Conteo (PDF)
+    </button>
         <button class="header-button" data-action="menu-audit-costs">Auditoría de Costos</button>
         <button class="header-button" data-action="menu-audit-products">Auditoría Prod.</button>
         <button class="header-button" data-action="menu-reset-day">Reiniciar Día</button>
@@ -2493,6 +2496,9 @@
         </div>
     </div>
 </div>
+<!-- Librerías para generar PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <!-- Librería de Encriptación -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
@@ -2749,7 +2755,7 @@
         
         console.log(`Buscando datos válidos en: ${searchDate}`);
 
-        // 1. Intentar LocalStorage primero
+        // 1. Intentar LocalStorage
         const prevStorageKey = `ipv_data_${businessName}_${searchDate}`;
         let foundData = null;
         try {
@@ -2757,7 +2763,7 @@
             foundData = unwrapDataRecursively(rawLocal);
         } catch (e) {}
 
-        // 2. Si no hay local y hay internet, intentar Nube
+        // 2. Si no hay local, intentar Nube
         if ((!foundData || !foundData.products || foundData.products.length === 0) && navigator.onLine && businessName !== "local_mode") {
             try {
                 const response = await ApiClient.getDailyData(businessName, password, searchDate);
@@ -2775,24 +2781,69 @@
             }
         }
 
-        // 3. Si encontramos datos válidos con productos, creamos el nuevo día basándonos en ellos
+        // 3. Si encontramos datos válidos
         if (foundData && foundData.products && foundData.products.length > 0) {
-            console.log(`¡Datos encontrados en ${searchDate}! Restaurando inventario...`);
+            console.log(`¡Datos encontrados en ${searchDate}!`);
+
+            // === LÓGICA PARA OBTENER EL NOMBRE DEL DÍA ===
+            // Creamos una fecha a mediodía para evitar errores de zona horaria
+            const dateObj = new Date(searchDate + "T12:00:00");
+            // Obtenemos el nombre del día en español (ej: "viernes")
+            const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'long' });
+            // Ponemos la primera letra en mayúscula (ej: "Viernes")
+            const dayNameCap = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+            // =============================================
+
+            // Ocultamos el cargando
+            hideLoading(); 
+
+            await showAlert(
+                `<div style="text-align: center; padding: 10px;">
+                    <div style="font-size: 3.5rem; margin-bottom: 15px; animation: pulse 2s infinite;">🛡️</div>
+                    
+                    <h3 style="color: #FFD600; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 15px 0; border-bottom: 1px solid rgba(255, 214, 0, 0.3); padding-bottom: 10px;">
+                        Restauración Automática
+                    </h3>
+                    
+                    <p style="color: #E0E5FF; font-size: 1rem; line-height: 1.6; margin-bottom: 20px;">
+                        No se encontraron datos de ayer. El sistema recuperó el inventario del último cierre disponible:
+                    </p>
+                    
+                    <!-- CAJA DE FECHA CON EL NOMBRE DEL DÍA -->
+                    <div style="background: rgba(0, 224, 255, 0.08); border: 1px solid rgba(0, 224, 255, 0.3); border-radius: 12px; padding: 15px; box-shadow: 0 0 20px rgba(0, 224, 255, 0.15);">
+                        
+                        <!-- Aquí mostramos el día (Ej: Viernes) -->
+                        <div style="font-size: 1.2rem; color: #FFFFFF; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; text-shadow: 0 0 5px rgba(255,255,255,0.5);">
+                            ${dayNameCap}
+                        </div>
+
+                        <!-- Aquí mostramos la fecha numérica -->
+                        <strong style="font-size: 1.5rem; color: #00E0FF; font-family: 'Roboto Mono', monospace; text-shadow: 0 0 10px rgba(0, 224, 255, 0.5);">
+                            ${searchDate}
+                        </strong>
+                    </div>
+                </div>`, 
+                "" 
+            );
+            
+            showLoading("Aplicando inventario...");
+
             const prods = foundData.products.filter(p => p.isActive !== false).map(p => {
-                // Si 'finales' existe usamos eso, si no 'start'
                 const finalValue = (typeof p.finales === 'number') ? p.finales : (p.start || 0);
                 return {
                     ...p,
-                    start: finalValue,   // El final del día encontrado es el inicio de hoy
+                    start: finalValue,
                     entrada: 0,
-                    finales: finalValue, // Pre-rellenamos finales para facilitar
+                    finales: finalValue,
                     lastModified: new Date().toISOString()
                 };
             });
+            
             return {
                 products: prods,
                 gastos: [],
-                notas: `Restaurado automáticamente desde ${searchDate}`, // Nota útil
+                // Agregamos también el nombre del día a las notas
+                notas: `✅ RESTAURADO AUTOMÁTICAMENTE DESDE EL: ${dayNameCap} ${searchDate}`,
                 categories: foundData.categories || [],
                 predefinedNotes: {},
                 pizzaCalcs: {},
@@ -2801,10 +2852,9 @@
         }
     }
 
-    // Si no se encuentra nada en 30 días, devolvemos estructura vacía por defecto
     console.log("No se encontraron datos previos. Iniciando en blanco.");
     const predefinedCategories = ['Aseo Personal', 'Bebidas', 'Carnicos', 'Confituras Variadas', 'Dulces', 'Enlatados', 'Galletas', 'Nevera', 'Pastas', 'Peter', 'Rones', 'Sazones'];
-    return { products: [], gastos: [], notas: "", categories: predefinedCategories, predefinedNotes: {}, pizzaCalcs: {}, isClosed: false };
+    return { products: [], gastos: [], notas: "Inicio de sistema sin datos previos.", categories: predefinedCategories, predefinedNotes: {}, pizzaCalcs: {}, isClosed: false };
 }
     // --- LOGIC & STATE ---
     function calculateProductMetrics(product) { const start = Number(product.start || 0); const entrada = Number(product.entrada || 0); const cost = Number(product.cost || 0); const price = Number(product.price || 0); const vendido = (typeof product.finales === 'number') ? Math.max(0, start + entrada - product.finales) : 0; const importe = vendido * price; const ganancias = importe - (vendido * cost); return { ...product, vendido, importe, ganancias }; }
@@ -3005,6 +3055,92 @@
     async function runProductAudit() { const productName = document.getElementById('audit-product-name').value.trim().toLowerCase(); if (!productName) return showAlert('Por favor, escribe el nombre de un producto.'); showLoading('Buscando en el historial...'); const allData = getAllHistoricalData(Session_ReportHandlers.businessName); const history = []; allData.forEach(day => { (day.data.products || []).forEach(p => { if (p.name.toLowerCase().includes(productName)) { history.push({ date: day.date, product: p }); } }); }); renderAuditResults(history, productName); hideLoading(); }
     async function handleCopyReport() { const data = StateManager.getState(); const totals = calculateDayTotals(data); let report = `📋 REPORTE DEL DÍA: ${Session_ReportHandlers.currentDate}\n🧑‍💼 Dependiente: ${data.user || 'No asignado'}\n================================\n\n📊 RESUMEN FINANCIERO\n  - Ingresos Brutos: $${totals.totalImporte.toFixed(2)}\n`; if (Session_ReportHandlers.isAdmin) { report += `  - Ganancia Bruta (Productos): $${totals.totalGanancias.toFixed(2)}\n  - Gastos Operativos: $${totals.gastosOperativos.toFixed(2)}\n  - Ganancia Neta: $${totals.gananciaNetaOperativa.toFixed(2)}\n`; } report += `  - Total Recogidas: $${totals.recogidas.toFixed(2)}\n  - Efectivo en Caja (Teórico): $${totals.efectivoTeoricoCaja.toFixed(2)}\n\n📦 VENTAS DETALLADAS\n`; (data.products || []).forEach(p => { const metrics = calculateProductMetrics(p); if (p.isActive !== false && metrics.vendido > 0) { report += `  - ${p.name}: ${metrics.vendido} x $${p.price.toFixed(2)} = $${metrics.importe.toFixed(2)}\n`; } }); report += `\n`; const activeGastos = (data.gastos || []).filter(g => g.isActive !== false); const gastosOperativos = activeGastos.filter(g => g.type !== 'recogida'); const recogidas = activeGastos.filter(g => g.type === 'recogida'); if (gastosOperativos.length > 0) { report += `💸 GASTOS OPERATIVOS\n`; gastosOperativos.forEach(g => { report += `  - ${g.description}: $${g.amount.toFixed(2)}\n`; }); report += `\n`; } if (recogidas.length > 0) { report += `💰 RECOGIDAS DE EFECTIVO\n`; recogidas.forEach(g => { report += `  - ${g.description}: $${g.amount.toFixed(2)}\n`; }); report += `\n`; } if (data.notas) { report += `📝 NOTAS ADICIONALES\n${data.notas}\n\n`; } report += `================================\nSistema de Gestión IPV`; navigator.clipboard.writeText(report).then(() => showAlert("Reporte copiado al portapapeles."), () => showAlert("Error al copiar el reporte.")); }
     function handleExportDay() { const data = StateManager.getState(); const dataStr = JSON.stringify(data, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `ipv_data_${Session_ReportHandlers.businessName}_${Session_ReportHandlers.currentDate}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); }
+    // --- FUNCIÓN PARA GENERAR PDF DE CONTEO ---
+async function handleGenerateStockPDF() {
+    // Verificar si la librería cargó
+    if (!window.jspdf) {
+        return showAlert("Error: Las librerías de PDF no se cargaron. Verifica tu conexión a internet.");
+    }
+
+    showLoading("Generando PDF...");
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // 1. Obtener datos
+        const state = StateManager.getState();
+        const currentDate = Session.currentDate;
+        
+        // 2. Filtrar productos con "algo de stock" (finales > 0) y ordenarlos A-Z
+        const activeProducts = (state.products || [])
+            .filter(p => p.isActive !== false && p.finales > 0)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (activeProducts.length === 0) {
+            hideLoading();
+            return showAlert("No hay productos con stock positivo para generar el reporte.");
+        }
+
+        // 3. Configurar encabezado del PDF
+        doc.setFontSize(18);
+        doc.text("Hoja de Conteo / Cuadre de Emergencia", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.text(`Fecha: ${currentDate}`, 14, 28);
+        doc.text(`Negocio: ${Session.businessName.replace(/_/g, ' ')}`, 14, 33);
+        doc.text("Nota: Utilice la columna derecha para anotar el conteo físico real.", 14, 38);
+
+        // 4. Preparar datos para la tabla
+        // Columnas: Producto | Sistema | Físico (Vacío para escribir)
+        const tableBody = activeProducts.map(p => [
+            p.name,
+            p.finales.toString(),
+            "" // Espacio vacío intencional
+        ]);
+
+        // 5. Generar Tabla
+        doc.autoTable({
+            startY: 45,
+            head: [['PRODUCTO', 'STOCK SISTEMA', 'CONTEO FÍSICO (Manual)']],
+            body: tableBody,
+            theme: 'grid', // Estilo rejilla (ahorra tinta y define bordes)
+            styles: { 
+                fontSize: 10, 
+                cellPadding: 3, 
+                lineColor: [0, 0, 0], // Bordes negros
+                lineWidth: 0.1 
+            },
+            headStyles: {
+                fillColor: [200, 200, 200], // Gris claro (ahorra tinta)
+                textColor: [0, 0, 0],
+                fontStyle: 'bold'
+            },
+            columnStyles: {
+                0: { cellWidth: 'auto' }, // Producto
+                1: { cellWidth: 30, halign: 'center' }, // Stock Sistema
+                2: { cellWidth: 50 } // Espacio grande para escribir
+            }
+        });
+
+        // 6. Pie de página
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.text("__________________________", 14, finalY);
+        doc.text("Firma del Responsable", 14, finalY + 5);
+
+        // 7. Guardar/Descargar
+        const filename = `Conteo_IPV_${currentDate}.pdf`;
+        doc.save(filename);
+        
+        hideLoading();
+        showAlert(`PDF generado: ${filename}`);
+
+    } catch (error) {
+        hideLoading();
+        console.error(error);
+        showAlert("Hubo un error al generar el PDF: " + error.message);
+    }
+}
     function handleImportDay() { const fileInput = document.getElementById('file-input'); fileInput.onchange = e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async event => { try { const importedData = JSON.parse(event.target.result); if (await showConfirm("Se cargará el archivo. Los datos actuales de este día se sobrescribirán. ¿Continuar?")) { StateManager.setState(importedData); await showAlert("Datos importados correctamente."); } } catch (err) { await showAlert("Error: El archivo no es un JSON válido."); } }; reader.readAsText(file); fileInput.value = ''; }; fileInput.click(); }
     function handleShowAbout() { const content = `<div style="text-align: center; margin-bottom: 20px;"><img src="./img/Logo.png" alt="Logo IPV" style="width: 60px; margin-bottom: 10px; filter: drop-shadow(0 0 10px var(--glow-cyan));"><h2>Gestión IPV</h2><h4 style="color: var(--text-secondary); font-weight: 500;">Versión ${APP_VERSION}</h4><p style="margin-top: 10px;">Tu asistente digital para el control de inventario, ventas y ganancias.</p><p style="font-size: 0.9em; margin-top: 5px;">Desarrollado por <strong>Erick Olivera</strong>.</p></div><div style="text-align: left;"><h4 style="color: var(--primary-cyan); border-bottom: 1px solid var(--border-glass); padding-bottom: 8px; margin-bottom: 10px;">Funcionalidades Clave</h4><ul style="list-style-type: '✓ '; padding-left: 20px; font-size: 0.95em; line-height: 1.6;"><li>Sincronización de datos en la nube.</li><li>Reportes financieros y de rendimiento.</li><li>Modo Administrador para proteger datos sensibles.</li><li>Herramientas integradas (Calculadora, Contador).</li><li>Diseño adaptable para PC, tablet o móvil.</li></ul><h4 style="color: var(--primary-cyan); border-bottom: 1px solid var(--border-glass); padding-bottom: 8px; margin-top: 20px; margin-bottom: 10px;">Últimas Actualizaciones</h4><ul style="list-style-type: '✨ '; padding-left: 20px; font-size: 0.95em; line-height: 1.6;"><li><strong>¡Nuevo!</strong> Sistema de notificaciones nativas de Android</li><li>PIN de administrador fijo y seguro</li></ul></div>`; showAlert(content, "Acerca de IPV Gestión", { className: 'promo-modal-cyber-neon' }); }
     function handleFinancialSummary(period = 'week') { const allData = getFilteredHistoricalData(null, null, Session_ReportHandlers.businessName); let totals = { ingresos: 0, gastos: 0, ganancias: 0 }; allData.forEach(day => { const dayTotals = calculateDayTotals(day.data); totals.ingresos += dayTotals.totalImporte; totals.ganancias += dayTotals.totalGanancias; totals.gastos += dayTotals.gastosOperativos; }); renderFinancialSummary(totals, { dayCount: allData.length }, Session_ReportHandlers.isAdmin); toggleModal('financialSummaryModal', true); }
@@ -3278,7 +3414,7 @@
         }
     }
 
-    const actionHandlers = { 'switchToCreate': () => switchLoginView(true), 'switchToLogin': () => switchLoginView(false), 'localMode': startLocalMode, 'deleteBusinessBtn': handleDeleteBusiness, 'addProductBtn': () => toggleModal("product-modal", true), 'deleteSelectedBtn': handleDeleteSelected, 'toggleAllBtn': toggleAllCategories, 'showZeroStockBtn': handleShowZeroStock, 'toggle-hide-zero-stock': toggleHideZeroStock, 'toggle-admin-mode': toggleAdminMode, 'openCalculatorBtn': () => toggleModal("calculatorModal", true), 'openBillCounterBtn': () => toggleModal("billCounterModal", true), 'refresh-data': handleRefreshData, 'deleteProduct': (target) => handleDeleteProduct(target), 'deleteGasto': (target) => handleDeleteGasto(target), 'addGastoBtn': () => toggleModal("gastos-modal", true), 'menu-sync-warehouse': handleSyncWarehouseCatalog, 'confirmCostUpdate': confirmCostUpdates, 'closeCostModal': () => toggleModal('costUpdateModal', false), 'menu-audit-costs': handleAuditCosts, 'menu-audit-products': () => toggleModal('dataAuditModal', true), 'menu-reset-day': handleResetDay, 'menu-end-of-day': handleEndOfDay, 'menu-clear-cache': handleClearCache, 'menu-change-pin': handleChangePin, 'menu-financial-summary': () => handleFinancialSummary(), 'menu-performance-report': () => toggleModal('performanceReportModal', true), 'menu-compare-periods': () => toggleModal('comparisonModal', true), 'menu-copy-report': handleCopyReport, 'menu-export-day': handleExportDay, 'menu-import-day': handleImportDay, 'menu-about': handleShowAbout, 'menu-change-password': handleChangePassword, 'runAuditBtn': runProductAudit, 'generatePerformanceReportBtn': generatePerformanceReport, 'runComparisonBtn': runComparison, 'copyZeroStockList': handleCopyZeroStockList, 'check-payment-status': handleManualStatusCheck, 'syncButton': (target) => syncToCloud(target), 'logoutBtn': logout, 'open-business-admin': openBusinessAdminPanel, 'toggle-worker': handleUpdateWorker, 'revoke-worker': handleUpdateWorker, 'add-worker-prompt': handleAddWorkerPrompt };
+    const actionHandlers = { 'switchToCreate': () => switchLoginView(true),  'switchToLogin': () => switchLoginView(false), 'localMode': startLocalMode, 'deleteBusinessBtn': handleDeleteBusiness, 'addProductBtn': () => toggleModal("product-modal", true), 'deleteSelectedBtn': handleDeleteSelected, 'toggleAllBtn': toggleAllCategories, 'showZeroStockBtn': handleShowZeroStock, 'toggle-hide-zero-stock': toggleHideZeroStock, 'toggle-admin-mode': toggleAdminMode, 'openCalculatorBtn': () => toggleModal("calculatorModal", true), 'openBillCounterBtn': () => toggleModal("billCounterModal", true), 'refresh-data': handleRefreshData, 'deleteProduct': (target) => handleDeleteProduct(target), 'deleteGasto': (target) => handleDeleteGasto(target), 'addGastoBtn': () => toggleModal("gastos-modal", true), 'menu-sync-warehouse': handleSyncWarehouseCatalog, 'confirmCostUpdate': confirmCostUpdates, 'closeCostModal': () => toggleModal('costUpdateModal', false), 'menu-audit-costs': handleAuditCosts, 'menu-audit-products': () => toggleModal('dataAuditModal', true), 'menu-reset-day': handleResetDay, 'menu-end-of-day': handleEndOfDay, 'menu-clear-cache': handleClearCache, 'menu-change-pin': handleChangePin, 'menu-financial-summary': () => handleFinancialSummary(), 'menu-performance-report': () => toggleModal('performanceReportModal', true), 'menu-compare-periods': () => toggleModal('comparisonModal', true), 'menu-copy-report': handleCopyReport, 'menu-export-day': handleExportDay, 'menu-import-day': handleImportDay, 'menu-about': handleShowAbout, 'menu-change-password': handleChangePassword, 'runAuditBtn': runProductAudit, 'generatePerformanceReportBtn': generatePerformanceReport, 'runComparisonBtn': runComparison, 'copyZeroStockList': handleCopyZeroStockList, 'check-payment-status': handleManualStatusCheck, 'syncButton': (target) => syncToCloud(target), 'logoutBtn': logout, 'open-business-admin': openBusinessAdminPanel, 'toggle-worker': handleUpdateWorker, 'revoke-worker': handleUpdateWorker, 'menu-generate-stock-pdf': handleGenerateStockPDF, 'add-worker-prompt': handleAddWorkerPrompt };
     function setupEventListeners() { 
         document.body.addEventListener("submit", handleFormSubmit); 
         document.body.addEventListener("click", handleGlobalClick); 
