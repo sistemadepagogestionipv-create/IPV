@@ -3056,89 +3056,124 @@
     async function handleCopyReport() { const data = StateManager.getState(); const totals = calculateDayTotals(data); let report = `📋 REPORTE DEL DÍA: ${Session_ReportHandlers.currentDate}\n🧑‍💼 Dependiente: ${data.user || 'No asignado'}\n================================\n\n📊 RESUMEN FINANCIERO\n  - Ingresos Brutos: $${totals.totalImporte.toFixed(2)}\n`; if (Session_ReportHandlers.isAdmin) { report += `  - Ganancia Bruta (Productos): $${totals.totalGanancias.toFixed(2)}\n  - Gastos Operativos: $${totals.gastosOperativos.toFixed(2)}\n  - Ganancia Neta: $${totals.gananciaNetaOperativa.toFixed(2)}\n`; } report += `  - Total Recogidas: $${totals.recogidas.toFixed(2)}\n  - Efectivo en Caja (Teórico): $${totals.efectivoTeoricoCaja.toFixed(2)}\n\n📦 VENTAS DETALLADAS\n`; (data.products || []).forEach(p => { const metrics = calculateProductMetrics(p); if (p.isActive !== false && metrics.vendido > 0) { report += `  - ${p.name}: ${metrics.vendido} x $${p.price.toFixed(2)} = $${metrics.importe.toFixed(2)}\n`; } }); report += `\n`; const activeGastos = (data.gastos || []).filter(g => g.isActive !== false); const gastosOperativos = activeGastos.filter(g => g.type !== 'recogida'); const recogidas = activeGastos.filter(g => g.type === 'recogida'); if (gastosOperativos.length > 0) { report += `💸 GASTOS OPERATIVOS\n`; gastosOperativos.forEach(g => { report += `  - ${g.description}: $${g.amount.toFixed(2)}\n`; }); report += `\n`; } if (recogidas.length > 0) { report += `💰 RECOGIDAS DE EFECTIVO\n`; recogidas.forEach(g => { report += `  - ${g.description}: $${g.amount.toFixed(2)}\n`; }); report += `\n`; } if (data.notas) { report += `📝 NOTAS ADICIONALES\n${data.notas}\n\n`; } report += `================================\nSistema de Gestión IPV`; navigator.clipboard.writeText(report).then(() => showAlert("Reporte copiado al portapapeles."), () => showAlert("Error al copiar el reporte.")); }
     function handleExportDay() { const data = StateManager.getState(); const dataStr = JSON.stringify(data, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `ipv_data_${Session_ReportHandlers.businessName}_${Session_ReportHandlers.currentDate}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); }
     // --- FUNCIÓN PARA GENERAR PDF DE CONTEO ---
+// --- FUNCIÓN PDF DOBLE COLUMNA (ESTRATEGIA DE GRUPOS) ---
 async function handleGenerateStockPDF() {
-    // Verificar si la librería cargó
-    if (!window.jspdf) {
-        return showAlert("Error: Las librerías de PDF no se cargaron. Verifica tu conexión a internet.");
-    }
+    if (!window.jspdf) return showAlert("Librerías PDF no cargadas.");
 
     showLoading("Generando PDF...");
 
     try {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        // 1. Obtener datos
+        const doc = new jsPDF('p', 'mm', 'a4');
         const state = StateManager.getState();
-        const currentDate = Session.currentDate;
         
-        // 2. Filtrar productos con "algo de stock" (finales > 0) y ordenarlos A-Z
+        // 1. Filtrar productos
         const activeProducts = (state.products || [])
             .filter(p => p.isActive !== false && p.finales > 0)
             .sort((a, b) => a.name.localeCompare(b.name));
 
         if (activeProducts.length === 0) {
             hideLoading();
-            return showAlert("No hay productos con stock positivo para generar el reporte.");
+            return showAlert("No hay productos con stock.");
         }
 
-        // 3. Configurar encabezado del PDF
-        doc.setFontSize(18);
-        doc.text("Hoja de Conteo / Cuadre de Emergencia", 14, 20);
+        // --- CONFIGURACIÓN ESTRICTA ---
+        // Reducimos a 55 para asegurar que no salte de página automáticamente
+        const ROWS_PER_COLUMN = 55; 
         
-        doc.setFontSize(10);
-        doc.text(`Fecha: ${currentDate}`, 14, 28);
-        doc.text(`Negocio: ${Session.businessName.replace(/_/g, ' ')}`, 14, 33);
-        doc.text("Nota: Utilice la columna derecha para anotar el conteo físico real.", 14, 38);
+        // Dividimos los productos en "grupos" de 55
+        const chunks = [];
+        for (let i = 0; i < activeProducts.length; i += ROWS_PER_COLUMN) {
+            chunks.push(activeProducts.slice(i, i + ROWS_PER_COLUMN));
+        }
 
-        // 4. Preparar datos para la tabla
-        // Columnas: Producto | Sistema | Físico (Vacío para escribir)
-        const tableBody = activeProducts.map(p => [
-            p.name,
-            p.finales.toString(),
-            "" // Espacio vacío intencional
-        ]);
+        // --- FUNCIÓN PARA DIBUJAR UNA COLUMNA ---
+        const drawTable = (data, xPos, yPos) => {
+            doc.autoTable({
+                startY: yPos,
+                margin: { left: xPos },
+                tableWidth: 92,
+                head: [['PRODUCTO', 'STOCK', 'FISICO']],
+                body: data.map(p => [
+                    p.name.substring(0, 32), 
+                    p.finales.toString(),
+                    "" 
+                ]),
+                theme: 'grid',
+                styles: { 
+                    fontSize: 7.5,
+                    cellPadding: 0.8, 
+                    valign: 'middle',
+                    lineColor: [150, 150, 150],
+                    lineWidth: 0.1,
+                    minCellHeight: 4.2
+                },
+                headStyles: {
+                    fillColor: [220, 220, 220],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    fontSize: 7,
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 'auto', halign: 'left' }, 
+                    1: { cellWidth: 12, halign: 'center', fontStyle: 'bold' }, 
+                    2: { cellWidth: 15 } 
+                },
+                // IMPORTANTE: Esto evita que la librería intente paginar por su cuenta
+                pageBreak: 'avoid',
+                showHead: 'everyPage'
+            });
+        };
 
-        // 5. Generar Tabla
-        doc.autoTable({
-            startY: 45,
-            head: [['PRODUCTO', 'STOCK SISTEMA', 'CONTEO FÍSICO (Manual)']],
-            body: tableBody,
-            theme: 'grid', // Estilo rejilla (ahorra tinta y define bordes)
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 3, 
-                lineColor: [0, 0, 0], // Bordes negros
-                lineWidth: 0.1 
-            },
-            headStyles: {
-                fillColor: [200, 200, 200], // Gris claro (ahorra tinta)
-                textColor: [0, 0, 0],
-                fontStyle: 'bold'
-            },
-            columnStyles: {
-                0: { cellWidth: 'auto' }, // Producto
-                1: { cellWidth: 30, halign: 'center' }, // Stock Sistema
-                2: { cellWidth: 50 } // Espacio grande para escribir
+        // --- BUCLE DE LLENADO ---
+        let pageNumber = 1;
+        
+        // Recorremos los grupos (chunks)
+        chunks.forEach((chunk, index) => {
+            // Un índice par (0, 2, 4...) va a la IZQUIERDA
+            // Un índice impar (1, 3, 5...) va a la DERECHA
+            const isLeftColumn = index % 2 === 0;
+
+            // Si es columna izquierda y NO es el primer grupo, necesitamos nueva hoja
+            if (isLeftColumn && index > 0) {
+                doc.addPage();
+                pageNumber++;
             }
+
+            // Encabezado (Solo lo dibujamos cuando estamos en la columna izquierda)
+            if (isLeftColumn) {
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(`CONTEO: ${Session.currentDate}`, 10, 8);
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Hoja ${pageNumber} - Negocio: ${Session.businessName}`, 150, 8);
+                
+                // Línea separadora central (pre-dibujada para toda la hoja)
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(0.2);
+                doc.line(102, 12, 102, 285);
+            }
+
+            // Coordenadas
+            const xPos = isLeftColumn ? 7 : 105;
+            const yPos = 12;
+
+            // Dibujar la tabla
+            drawTable(chunk, xPos, yPos);
         });
 
-        // 6. Pie de página
-        const finalY = doc.lastAutoTable.finalY + 10;
-        doc.text("__________________________", 14, finalY);
-        doc.text("Firma del Responsable", 14, finalY + 5);
-
-        // 7. Guardar/Descargar
-        const filename = `Conteo_IPV_${currentDate}.pdf`;
+        const filename = `Conteo_IPV_${Session.currentDate}.pdf`;
         doc.save(filename);
         
         hideLoading();
-        showAlert(`PDF generado: ${filename}`);
+        if (!window.AndroidApp) showAlert(`PDF Generado: ${filename}`);
 
     } catch (error) {
         hideLoading();
         console.error(error);
-        showAlert("Hubo un error al generar el PDF: " + error.message);
+        showAlert("Error PDF: " + error.message);
     }
 }
     function handleImportDay() { const fileInput = document.getElementById('file-input'); fileInput.onchange = e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async event => { try { const importedData = JSON.parse(event.target.result); if (await showConfirm("Se cargará el archivo. Los datos actuales de este día se sobrescribirán. ¿Continuar?")) { StateManager.setState(importedData); await showAlert("Datos importados correctamente."); } } catch (err) { await showAlert("Error: El archivo no es un JSON válido."); } }; reader.readAsText(file); fileInput.value = ''; }; fileInput.click(); }
