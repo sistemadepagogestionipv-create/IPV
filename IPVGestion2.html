@@ -2808,7 +2808,127 @@
         updateEncryptedSecretKey: (businessName, password, newEncryptedSecretKey) => apiCall({ action: 'updateEncryptedSecretKey', businessName, password, newEncryptedSecretKey }),
         getWarehouseData: (businessName, password) => apiCall({ action: 'getWarehouseData', businessName, password })
     };
+// =========================================================
+    // MÓDULO DE COLA DE SINCRONIZACIÓN (OFFLINE-FIRST)
+    // =========================================================
+    const QueueManager = {
+        STORAGE_KEY: 'ipv_sync_queue',
+        isProcessing: false,
 
+        // Obtener la cola actual
+        getQueue() {
+            try {
+                return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]');
+            } catch (e) {
+                return [];
+            }
+        },
+
+        // Guardar la cola
+        saveQueue(queue) {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(queue));
+            this.updateUI();
+        },
+
+        // Añadir una solicitud a la cola (Estrategia: Última versión gana)
+        enqueue(requestData) {
+            let queue = this.getQueue();
+            
+            // Si ya existe una petición pendiente para esa misma fecha y negocio, la actualizamos
+            // Esto evita enviar datos viejos si el usuario hizo 10 cambios sin internet.
+            const existingIndex = queue.findIndex(item => 
+                item.businessName === requestData.businessName && 
+                item.date === requestData.date
+            );
+
+            if (existingIndex >= 0) {
+                queue[existingIndex] = { ...requestData, timestamp: Date.now() };
+                console.log(`Queue: Actualizada petición pendiente para ${requestData.date}`);
+            } else {
+                queue.push({ ...requestData, timestamp: Date.now() });
+                console.log(`Queue: Nueva petición añadida para ${requestData.date}`);
+            }
+
+            this.saveQueue(queue);
+            // Intentar procesar inmediatamente si es posible
+            if (navigator.onLine) this.processQueue();
+        },
+
+        // Procesar la cola (Intentar enviar)
+        async processQueue() {
+            if (this.isProcessing || !navigator.onLine) return;
+
+            const queue = this.getQueue();
+            if (queue.length === 0) return;
+
+            this.isProcessing = true;
+            updateSyncIndicator(true, true); // Mostrar icono azul (sincronizando)
+
+            // Procesamos el primer elemento (FIFO)
+            const request = queue[0];
+
+            try {
+                console.log(`Queue: Intentando enviar datos de ${request.date}...`);
+                const response = await ApiClient.sync(
+                    request.businessName, 
+                    request.password, 
+                    request.date, 
+                    request.payload
+                );
+
+                if (response.status === 'success') {
+                    console.log(`Queue: ¡Éxito! ${request.date} sincronizado.`);
+                    // Eliminar de la cola si tuvo éxito
+                    queue.shift(); 
+                    this.saveQueue(queue);
+                    
+                    // Si quedan más, procesar el siguiente recursivamente
+                    if (queue.length > 0) {
+                        this.isProcessing = false;
+                        this.processQueue();
+                    } else {
+                        // Todo terminado
+                        this.isProcessing = false;
+                        updateSyncIndicator(false); // Verde
+                        if (typeof showAlert === 'function') showAlert("Sincronización completada (Recuperado de cola).");
+                    }
+                } else {
+                    throw new Error(response.message || "Error del servidor");
+                }
+            } catch (error) {
+                console.error(`Queue: Fallo al enviar ${request.date}`, error);
+                this.isProcessing = false;
+                // No lo sacamos de la cola, lo intentaremos después.
+                // Actualizamos UI para mostrar que hay pendientes (Naranja)
+                updateSyncIndicator(true, false); 
+            }
+        },
+
+        // Actualizar el indicador visual si hay cosas en cola
+        updateUI() {
+            const queue = this.getQueue();
+            const hasPending = queue.length > 0;
+            // Si hay pendientes y no se está procesando, poner en Naranja/Amarillo
+            if (hasPending && !this.isProcessing) {
+                updateSyncIndicator(true, false);
+            }
+        },
+
+        // Iniciar los listeners automáticos
+        init() {
+            // Intentar procesar cada 30 segundos
+            setInterval(() => this.processQueue(), 30000);
+            
+            // Intentar procesar cuando vuelve el internet
+            window.addEventListener('online', () => {
+                console.log("Red detectada: Procesando cola...");
+                this.processQueue();
+            });
+
+            // Verificar estado inicial
+            this.updateUI();
+        }
+    };
     const StatusChecker = {
         intervalId: null,
         async check() {
@@ -3544,8 +3664,63 @@ async function handleGenerateStockPDF() {
     
     function startLocalMode() { Session.businessName = "local_mode"; Session.password = "local"; Session.setAdmin(true); Session.save(); window.location.reload(); }
     function changeDay(offset) { const dateInput = document.getElementById('dateInput'); const currentDate = new Date(dateInput.value + 'T12:00:00Z'); currentDate.setUTCDate(currentDate.getUTCDate() + offset); dateInput.value = currentDate.toISOString().split('T')[0]; dateInput.dispatchEvent(new Event('change')); }
-    async function syncToCloud(button) { if (Session.businessName === "local_mode") return showAlert("El modo local no se sincroniza."); if (!navigator.onLine) return showAlert("Sin internet."); button.disabled = true; updateSyncIndicator(true, true); try { const dataToSync = StateManager.getState(); const encryptedPayload = encryptData(dataToSync, Session.encryptionKey); if (!encryptedPayload) throw new Error("Fallo encriptación."); const syncPayload = { isEncrypted: !!Session.encryptionKey, payload: encryptedPayload }; const response = await ApiClient.sync(Session.businessName, Session.password, Session.currentDate, syncPayload); if (response.status === 'success') { updateSyncIndicator(false); showAlert("Sincronización completada."); } else { throw new Error(response.message || 'Error servidor.'); } } catch (error) { showAlert(`Error: ${error.message}`); updateSyncIndicator(true); } finally { button.disabled = false; } }
-    
+    // --- FUNCIÓN MODIFICADA PARA USAR LA COLA ---
+    async function syncToCloud(button) { 
+        if (Session.businessName === "local_mode") return showAlert("El modo local no se sincroniza."); 
+        
+        // Preparar los datos
+        const dataToSync = StateManager.getState(); 
+        
+        // Intentar encriptar (si aplica)
+        let syncPayload;
+        try {
+            const encryptedPayload = encryptData(dataToSync, Session.encryptionKey); 
+            if (!encryptedPayload) throw new Error("Fallo encriptación."); 
+            syncPayload = { isEncrypted: !!Session.encryptionKey, payload: encryptedPayload };
+        } catch (e) {
+            return showAlert("Error crítico al preparar datos: " + e.message);
+        }
+
+        // Datos de la petición
+        const requestData = {
+            businessName: Session.businessName,
+            password: Session.password,
+            date: Session.currentDate,
+            payload: syncPayload
+        };
+
+        if (button) button.disabled = true;
+
+        // LÓGICA OFFLINE-FIRST:
+        // 1. Si no hay internet, directo a la cola.
+        // 2. Si hay internet, intentamos enviar. Si falla, a la cola.
+        
+        if (!navigator.onLine) {
+            QueueManager.enqueue(requestData);
+            if (button) button.disabled = false;
+            return showAlert("Sin conexión. Datos guardados en cola para envío automático.", "Modo Offline");
+        }
+
+        updateSyncIndicator(true, true); // Azul
+
+        try { 
+            const response = await ApiClient.sync(requestData.businessName, requestData.password, requestData.date, requestData.payload); 
+            
+            if (response.status === 'success') { 
+                updateSyncIndicator(false); 
+                showAlert("Sincronización completada."); 
+            } else { 
+                throw new Error(response.message || 'Error servidor.'); 
+            } 
+        } catch (error) { 
+            console.warn("Fallo sync directa, guardando en cola:", error);
+            // Si falló, lo guardamos en la cola para que el QueueManager lo intente luego
+            QueueManager.enqueue(requestData);
+            showAlert(`No se pudo conectar con la nube. Se reintentará automáticamente en segundo plano.`, "Guardado Localmente");
+        } finally { 
+            if (button) button.disabled = false; 
+        } 
+    }
     // --- MODIFICADO: Add Product con Validación ---
     async function addProduct() { 
         const namesInput = document.getElementById('modal-product-name'); 
@@ -3750,33 +3925,88 @@ function toggleTheme() {
     }
 
     async function main() {
-        initTheme();
+        // 1. Inicializar Tema (Light/Dark Mode)
+        if (typeof initTheme === 'function') initTheme();
+
+        // 2. Verificar Bloqueo por Pago al inicio
         if (checkInitialLockStatus()) { console.log("Bloqueado al inicio."); return; }
         
-        // Inyectar HTML de Insumos antes de inicializar la lógica
-        injectInsumosHTML();
+        // 3. Inyectar HTML del módulo de Insumos
+        // Se hace antes de inicializar la lógica para que los elementos existan en el DOM
+        if (typeof injectInsumosHTML === 'function') injectInsumosHTML();
 
-        setAppVersion(APP_VERSION); setupEventListeners();
+        // 4. Configuración Básica
+        setAppVersion(APP_VERSION); 
+        setupEventListeners();
+        
+        // 5. Inicializar Calculadoras y guardar la referencia para recargar datos de pizza
         const calculatorFunctions = initializeCalculators({ toggleModal });
         pizzaDataLoader = calculatorFunctions.loadPizzaData;
+        
+        // 6. Inicializar Ayudante de Sesión
         init(Session);
-        StateManager.subscribe((data) => { if (!data || !Session.businessName) return; renderApp(data, Session); if (pizzaDataLoader) pizzaDataLoader(data); saveDataForCurrentDate(data); });
+        
+        // 7. Inicializar Cola de Sincronización (Offline-First)
+        // Esto arranca el procesador en segundo plano
+        if (typeof QueueManager !== 'undefined' && typeof QueueManager.init === 'function') {
+            QueueManager.init();
+        }
+
+        // 8. Suscribirse a cambios del Estado (Renderizado Reactivo)
+        StateManager.subscribe((data) => { 
+            if (!data || !Session.businessName) return; 
+            renderApp(data, Session); 
+            if (pizzaDataLoader) pizzaDataLoader(data); 
+            saveDataForCurrentDate(data); 
+        });
+
+        // 9. Cargar Sesión y Datos Iniciales
         if (Session.load()) {
             Session.isOwner = localStorage.getItem('ipv_is_owner') === 'true';
             showMainApp();
+
+            // Cargar caché del catálogo de almacén para autocompletado
             if (typeof updateWarehouseAutocomplete === 'function') {
                 const cachedWh = localStorage.getItem(`ipv_warehouse_cache_${Session.businessName}`);
                 if (cachedWh) { try { updateWarehouseAutocomplete(JSON.parse(cachedWh)); } catch (e) {} }
             }
+
+            // Restaurar nombre del trabajador/admin en la UI
             const workerName = sessionStorage.getItem('ipv_worker_name');
-            if (workerName) { const displayEl = document.getElementById('worker-name-display'); if (displayEl) { const spanEl = displayEl.querySelector('span'); if (spanEl) spanEl.textContent = workerName; displayEl.classList.remove('hidden'); } }
-            if (Session.isOwner) { const ownerSection = document.getElementById('owner-admin-section'); if (ownerSection) ownerSection.classList.remove('hidden'); }
+            if (workerName) { 
+                const displayEl = document.getElementById('worker-name-display'); 
+                if (displayEl) { 
+                    const spanEl = displayEl.querySelector('span'); 
+                    if (spanEl) spanEl.textContent = workerName; 
+                    displayEl.classList.remove('hidden'); 
+                } 
+            }
+
+            // Mostrar secciones exclusivas del dueño
+            if (Session.isOwner) { 
+                const ownerSection = document.getElementById('owner-admin-section'); 
+                if (ownerSection) ownerSection.classList.remove('hidden'); 
+            }
+
+            // Iniciar chequeo de estado (bloqueos/mensajes)
             StatusChecker.start();
+
+            // Configurar fecha inicial
             const dateInput = document.getElementById('dateInput');
             const lastDate = localStorage.getItem('ipv_last_selected_date') || new Date().toISOString().split('T')[0];
-            if (dateInput) { dateInput.value = lastDate; dateInput.addEventListener('change', (e) => loadDataForDate(e.target.value)); }
+            if (dateInput) { 
+                dateInput.value = lastDate; 
+                dateInput.addEventListener('change', (e) => loadDataForDate(e.target.value)); 
+            }
+
+            // Cargar datos del día seleccionado
             loadLocalDataAndThenSync(lastDate);
-        } else { showLoginScreen(); }
+        } else { 
+            // Si no hay sesión, mostrar login
+            showLoginScreen(); 
+        }
+
+        // 10. Listeners de Scroll para UI
         setupScrollAndHeaderListeners();
     }
     async function loadLocalDataAndThenSync(dateString) { showLoading('Cargando datos locales...'); Session.currentDate = dateString; const storageKey = `ipv_data_${Session.businessName}_${dateString}`; let localData = null; try { localData = JSON.parse(localStorage.getItem(storageKey)); } catch (e) { } if (!localData) { localData = await createNewDayDataFromPrevious(Session); } localStorage.setItem("ipv_last_selected_date", dateString); const finalData = normalizeData(localData, Session.businessName); StateManager.setState(finalData); hideLoading(); syncWithCloudInBackground(dateString); }
