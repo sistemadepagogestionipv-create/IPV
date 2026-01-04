@@ -2021,76 +2021,172 @@
     font-weight: bold;
 }
 
-/* === ESTILOS FIXED PARA BORRADOR COMPACTO (MÓVIL) === */
+/* === ESTILOS FIXED PARA BORRADOR COMPACTO (PANTALLA COMPLETA) === */
 
+/* Forzar modal a pantalla completa sin bordes */
+#draftModal {
+    padding: 0 !important;
+}
+
+#draftModal .modal-content {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    background: var(--bg-dark);
+}
+
+/* Encabezado Ultra Compacto */
+.draft-header-compact {
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border-glass);
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    backdrop-filter: blur(10px);
+    z-index: 50;
+}
+
+.draft-header-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.draft-controls-group {
+    display: flex;
+    gap: 5px;
+    flex-grow: 1;
+    justify-content: flex-end;
+}
+
+.btn-draft-compact {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-glass);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.btn-draft-action {
+    background-image: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-magenta) 100%);
+    color: var(--bg-dark);
+    border: none;
+}
+
+/* Tabla Ajustada */
 #draft-table {
     width: 100% !important;
     border-collapse: collapse;
-    table-layout: fixed; /* Mantiene la estructura rígida */
+    table-layout: fixed;
 }
 
 #draft-table th, 
 #draft-table td {
-    padding: 6px 2px !important;
+    padding: 4px 2px !important;
     vertical-align: middle !important;
-    font-size: 0.85rem !important;
-    white-space: nowrap; /* Evita saltos de línea */
+    font-size: 0.8rem !important;
+    white-space: nowrap;
 }
 
-/* --- DEFINICIÓN DE ANCHOS --- */
+#draft-table th {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 0.7rem !important;
+    text-transform: uppercase;
+}
 
-/* 1. NOMBRE (Automático): Ocupa todo el espacio que sobra */
+/* --- ANCHOS DE COLUMNAS (5 Columnas) --- */
+/* 1. PRODUCTO (El resto del espacio) */
 #draft-table th:nth-child(1),
 #draft-table td:nth-child(1) {
-    display: table-cell !important; /* <--- CORRECCIÓN IMPORTANTE: Fuerza la visibilidad en móviles */
+    display: table-cell !important;
     width: auto !important; 
     text-align: left !important;
-    padding-left: 5px !important;
+    padding-left: 8px !important;
     overflow: hidden;
-    text-overflow: ellipsis; /* Puntos suspensivos si es muy largo */
-    color: var(--text-primary);
+    text-overflow: ellipsis;
     font-weight: 600;
+    color: var(--text-primary);
 }
 
-/* 2. SIS (Fijo estrecho) */
+/* 2. INI (Inicio - Solo lectura) */
 #draft-table th:nth-child(2),
 #draft-table td:nth-child(2) {
-    width: 35px !important;
+    width: 30px !important;
     text-align: center !important;
     color: var(--text-secondary);
+    font-size: 0.75rem !important;
 }
 
-/* 3. FÍSICO (Ancho para el input) */
+/* 3. ENT (Entradas - Editable) */
 #draft-table th:nth-child(3),
 #draft-table td:nth-child(3) {
-    width: 55px !important;
+    width: 45px !important;
     text-align: center !important;
 }
 
-/* 4. OK (Ancho para el botón) */
+/* 4. FIN (Finales/Físico - Editable) */
 #draft-table th:nth-child(4),
 #draft-table td:nth-child(4) {
-    width: 40px !important;
+    width: 45px !important;
     text-align: center !important;
 }
 
-/* --- COMPONENTES --- */
+/* 5. OK (Botón) */
+#draft-table th:nth-child(5),
+#draft-table td:nth-child(5) {
+    width: 35px !important;
+    text-align: center !important;
+}
 
-/* Input numérico */
+/* Inputs dentro de la tabla */
 #draft-table .draft-input {
     width: 100% !important;
-    height: 30px !important;
+    height: 32px !important;
     padding: 0 !important;
-    font-size: 1rem !important;
+    font-size: 0.95rem !important;
     text-align: center;
     background: rgba(0, 0, 0, 0.4) !important;
     border: 1px solid var(--border-glass);
     border-radius: 4px;
     color: white;
 }
+
+/* Color específico para Entradas para diferenciarlo */
+#draft-table .draft-input.input-entrada {
+    color: var(--success-color);
+    border-color: rgba(0, 255, 149, 0.3);
+}
+
 #draft-table .draft-input:focus {
     border-color: var(--primary-cyan);
     background: var(--bg-primary) !important;
+    z-index: 10;
+}
+
+.differs {
+    background: rgba(0, 224, 255, 0.1) !important;
+    border-color: var(--primary-cyan) !important;
 }
 
 /* Botón Icono */
@@ -2107,12 +2203,6 @@
     border-radius: 4px;
     color: var(--primary-cyan);
     cursor: pointer;
-}
-.btn-icon-apply svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    stroke-width: 3;
 }
 </style>
 <body>
@@ -2300,8 +2390,7 @@
 
 
 
-<main class="container hidden" id="container">
-    <div class="button-container">
+<div class="button-container">
         <button data-action="deleteSelectedBtn" aria-label="Eliminar productos seleccionados" title="Eliminar productos seleccionados"><svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-trash"></use></svg></button>
         <button data-action="addProductBtn" aria-label="Añadir nuevo producto" title="Añadir nuevo producto"><svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-add"></use></svg></button>
         <button data-action="toggleAllBtn">Expandir/Contraer</button>
@@ -2313,9 +2402,19 @@
         <button data-action="toggle-hide-zero-stock" aria-label="Ocultar productos con stock cero" title="Ocultar productos con stock cero"><svg width="20" height="20" aria-hidden="true"><use id="eye-icon" xlink:href="#icon-eye"></use></svg></button>
         <button data-action="openCalculatorBtn" aria-label="Abrir calculadora" title="Abrir calculadora"><svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-calculator"></use></svg></button>
         <button data-action="openBillCounterBtn" aria-label="Abrir contador de billetes" title="Abrir contador de billetes"><svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-dollar"></use></svg></button>
-        <button data-action="refresh-data" aria-label="Refrescar datos" title="Refrescar datos">
+        
+ <button data-action="refresh-data" aria-label="Refrescar datos" title="Refrescar datos">
             <svg width="20" height="20" aria-hidden="true"><use xlink:href="#icon-refresh"></use></svg>
         </button>
+
+        <button data-action="menu-open-draft" aria-label="Abrir Borrador de Conteo" title="Abrir Borrador de Conteo" style="color: var(--primary-cyan); border-color: var(--primary-cyan);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+        </button>
+
+       
     </div>
     <div class="responsive-table-wrapper">
         <table class="responsive-table" id="product-table">
@@ -3681,49 +3780,68 @@ async function handleGenerateStockPDF() {
     // MÓDULO: BORRADOR DE CONTEO (V4 - FIXED WIDTHS)
     // =========================================================
     
+    // =========================================================
+    // MÓDULO: BORRADOR DE CONTEO (V5 - FULL SCREEN & ENTRIES)
+    // =========================================================
+    
     let draftCollapsedCategories = new Set();
-    function getDraftKey() { return 'ipv_draft_data'; }
+    function getDraftKey() { return 'ipv_draft_data_v2'; } // Clave nueva para evitar conflictos
 
     // 1. ABRIR MODAL
     function handleOpenDraftModal() {
         const state = StateManager.getState();
-        const activeProducts = (state.products || []).filter(p => p.isActive !== false && p.finales > 0);
+        // Mostrar productos activos. Si inicio es 0, pero es un producto activo, lo mostramos para permitir entradas.
+        const activeProducts = (state.products || []).filter(p => p.isActive !== false);
 
-        if (activeProducts.length === 0) return showAlert("No hay productos con stock inicial para contar.");
+        if (activeProducts.length === 0) return showAlert("No hay productos activos.");
 
-        const modalContent = document.querySelector('#draftModal .modal-scrollable-content');
+        const modalContent = document.querySelector('#draftModal .modal-content');
         if (modalContent) {
+            // Reemplazamos TODO el contenido del modal para control total del layout
             modalContent.innerHTML = `
-                <div style="position: sticky; top: 0; background: var(--bg-glass); z-index: 20; padding-bottom: 10px; border-bottom: 1px solid var(--border-glass);">
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="draftSearchInput" placeholder="Buscar..." 
-                               style="flex-grow: 1; padding: 8px; background: var(--bg-primary); border: 1px solid var(--primary-cyan); color: white; border-radius: 6px;"
+                <div class="draft-header-compact">
+                    <div style="display:flex; gap:5px; flex-grow:1;">
+                        <input type="text" id="draftSearchInput" placeholder="🔍 Buscar..." 
+                               style="width: 100%; max-width: 140px; padding: 6px; background: var(--bg-primary); border: 1px solid var(--border-glass); color: white; border-radius: 4px; font-size: 0.85rem;"
                                onkeyup="window.filterDraftTable(this.value)">
-                         <button onclick="window.toggleAllDraftCategories()" 
-                                 style="width: 40px; background: var(--bg-primary); border: 1px solid var(--border-glass); color: var(--text-secondary); border-radius: 6px; cursor: pointer;">
-                             ↕
-                         </button>
+                        
+                        <button onclick="window.toggleAllDraftCategories()" class="btn-draft-compact" title="Expandir/Contraer">
+                            ↕
+                        </button>
+                    </div>
+
+                    <div class="draft-controls-group">
+                        <button class="btn-draft-compact" onclick="window.clearDraftData()" style="color: var(--danger-color); border-color: var(--danger-color);">
+                            🗑️
+                        </button>
+                        <button class="btn-draft-compact btn-draft-action" onclick="window.applyAllDraftCounts()">
+                            ✅ Aplicar
+                        </button>
+                        <button class="close" style="position:static; margin-left:5px; width:30px; height:30px; font-size:24px;" onclick="document.getElementById('draftModal').style.display='none'; document.body.style.overflow='';">&times;</button>
                     </div>
                 </div>
                 
-                <table class="responsive-table" id="draft-table" style="margin-top: 5px;">
-                    <thead>
-                        <tr>
-                            <!-- 4 Columnas: La primera se expande, las otras son fijas -->
-                            <th>PROD.</th>
-                            <th>SIS.</th>
-                            <th>FÍS.</th>
-                            <th>OK</th>
-                        </tr>
-                    </thead>
-                    <tbody id="draft-table-body"></tbody>
-                </table>
+                <div class="modal-scrollable-content" style="padding: 0 !important; flex-grow: 1;">
+                    <table class="responsive-table" id="draft-table">
+                        <thead style="position: sticky; top: 0; z-index: 40; background: var(--bg-dark);">
+                            <tr>
+                                <th>PROD.</th>
+                                <th>INI.</th>
+                                <th>ENT.</th>
+                                <th>FIN.</th>
+                                <th>OK</th>
+                            </tr>
+                        </thead>
+                        <tbody id="draft-table-body"></tbody>
+                    </table>
+                </div>
             `;
         }
 
         renderDraftRows(activeProducts);
         toggleModal('draftModal', true);
-        setTimeout(() => document.getElementById('draftSearchInput')?.focus(), 100);
+        // Pequeño hack para enfocar el input sin teclado en móviles si se desea, o solo dar foco visual
+        // setTimeout(() => document.getElementById('draftSearchInput')?.focus(), 100);
     }
 
     // 2. RENDERIZAR FILAS
@@ -3754,18 +3872,23 @@ async function handleGenerateStockPDF() {
             const isCollapsed = draftCollapsedCategories.has(category);
             const icon = isCollapsed ? '►' : '▼';
 
-            // Fila Categoría (colspan 4 para ocupar todo el ancho)
+            // Fila Categoría (colspan 5)
             const catRow = document.createElement('tr');
             catRow.className = "category-row";
             catRow.onclick = () => window.toggleDraftCategory(category);
-            catRow.innerHTML = `<td colspan="4" style="text-align: left; padding: 8px 5px !important; font-weight: bold; background: var(--bg-primary); color: var(--primary-cyan); cursor: pointer;">
+            catRow.innerHTML = `<td colspan="5" style="text-align: left; padding: 10px 8px !important; font-weight: bold; background: var(--bg-primary); color: var(--primary-cyan); cursor: pointer; border-bottom: 1px solid var(--border-glass);">
                 ${icon} ${category}
             </td>`;
             tbody.appendChild(catRow);
 
             productsByCategory[category].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-                const draftValue = savedDraft[p.id] !== undefined ? savedDraft[p.id] : "";
-                const diffClass = (draftValue !== "" && parseFloat(draftValue) !== p.finales) ? 'differs' : '';
+                // Recuperar datos guardados. Estructura: { f: valor, e: valor }
+                const data = savedDraft[p.id] || {};
+                const draftFisico = data.f !== undefined ? data.f : "";
+                const draftEntrada = data.e !== undefined ? data.e : "";
+                
+                const diffClassF = (draftFisico !== "" && parseFloat(draftFisico) !== p.finales) ? 'differs' : '';
+                const diffClassE = (draftEntrada !== "" && parseFloat(draftEntrada) !== (p.entrada || 0)) ? 'differs' : '';
 
                 const tr = document.createElement('tr');
                 tr.dataset.id = p.id;
@@ -3774,10 +3897,14 @@ async function handleGenerateStockPDF() {
 
                 tr.innerHTML = `
                     <td title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</td>
-                    <td>${p.finales}</td>
+                    <td style="color: var(--text-secondary);">${p.start}</td>
                     <td>
-                        <input type="number" class="draft-input ${diffClass}" value="${draftValue}" placeholder="-" 
-                               oninput="window.saveSingleDraftInput(this, '${p.id}')">
+                        <input type="number" class="draft-input input-entrada ${diffClassE}" value="${draftEntrada}" placeholder="-" 
+                               oninput="window.saveSingleDraftInput(this, '${p.id}', 'e')">
+                    </td>
+                    <td>
+                        <input type="number" class="draft-input ${diffClassF}" value="${draftFisico}" placeholder="-" 
+                               oninput="window.saveSingleDraftInput(this, '${p.id}', 'f')">
                     </td>
                     <td>
                         <button class="btn-icon-apply" onclick="window.applySingleDraftRow('${p.id}')">
@@ -3794,14 +3921,14 @@ async function handleGenerateStockPDF() {
     window.toggleDraftCategory = function(cat) {
         if (draftCollapsedCategories.has(cat)) draftCollapsedCategories.delete(cat); else draftCollapsedCategories.add(cat);
         const state = StateManager.getState();
-        renderDraftRows((state.products||[]).filter(p=>p.isActive!==false && p.finales>0));
-        const s = document.getElementById('draftSearchInput')?.value;
+        const s = document.getElementById('draftSearchInput')?.value || "";
+        renderDraftRows((state.products||[]).filter(p=>p.isActive!==false)); // Mostrar todos
         if(s) window.filterDraftTable(s);
     };
 
     window.toggleAllDraftCategories = function() {
         const state = StateManager.getState();
-        const active = (state.products||[]).filter(p=>p.isActive!==false && p.finales>0);
+        const active = (state.products||[]).filter(p=>p.isActive!==false);
         if (draftCollapsedCategories.size > 0) draftCollapsedCategories.clear();
         else draftCollapsedCategories = new Set(active.map(p => p.category || "General"));
         renderDraftRows(active);
@@ -3814,7 +3941,7 @@ async function handleGenerateStockPDF() {
         
         if (!t) {
             const state = StateManager.getState();
-            renderDraftRows((state.products||[]).filter(p=>p.isActive!==false && p.finales>0));
+            renderDraftRows((state.products||[]).filter(p=>p.isActive!==false));
             return;
         }
 
@@ -3831,45 +3958,108 @@ async function handleGenerateStockPDF() {
         if (curHeader) curHeader.style.display = showHeader ? '' : 'none';
     };
 
-    window.saveSingleDraftInput = function(inp, id) {
+    // type: 'e' (entrada) o 'f' (finales)
+    window.saveSingleDraftInput = function(inp, id, type) {
         inp.classList.toggle('differs', inp.value !== "");
         let d = { date: Session.currentDate, business: Session.businessName, counts: {} };
-        try { const r = localStorage.getItem(getDraftKey()); if(r) { const p = JSON.parse(r); if(p.date===Session.currentDate) d=p; } } catch{}
-        if(inp.value==="") delete d.counts[id]; else d.counts[id] = parseFloat(inp.value);
+        
+        try { 
+            const r = localStorage.getItem(getDraftKey()); 
+            if(r) { 
+                const p = JSON.parse(r); 
+                if(p.date===Session.currentDate) d=p; 
+            } 
+        } catch{}
+
+        // Inicializar objeto para este producto si no existe
+        if (!d.counts[id]) d.counts[id] = {};
+
+        // Guardar valor
+        if (inp.value === "") {
+            delete d.counts[id][type]; // Eliminar clave si está vacío
+            // Si el objeto queda vacío, borrarlo del mapa principal
+            if (Object.keys(d.counts[id]).length === 0) delete d.counts[id];
+        } else {
+            d.counts[id][type] = parseFloat(inp.value);
+        }
+        
         localStorage.setItem(getDraftKey(), JSON.stringify(d));
     };
 
     window.applySingleDraftRow = function(id) {
         const row = document.querySelector(`#draft-table-body tr[data-id="${id}"]`); if (!row) return;
-        const v = row.querySelector('input').value;
-        if(v === "") return showAlert("Escribe cantidad.");
-        StateManager.updateProductFieldById(id, 'finales', v);
+        const inputE = row.querySelector('.input-entrada');
+        const inputF = row.querySelector('.draft-input:not(.input-entrada)');
+        
+        let changed = false;
+
+        // Aplicar Entrada
+        if (inputE && inputE.value !== "") {
+            StateManager.updateProductFieldById(id, 'entrada', inputE.value);
+            changed = true;
+        }
+
+        // Aplicar Finales
+        if (inputF && inputF.value !== "") {
+            StateManager.updateProductFieldById(id, 'finales', inputF.value);
+            changed = true;
+        }
+
+        if(!changed) return showAlert("Escribe cantidad en Entrada o Final.");
+
         row.style.opacity="0.5"; row.style.pointerEvents="none";
         const btn = row.querySelector('.btn-icon-apply');
-        if(btn) { btn.style.background="var(--success-color)"; btn.style.borderColor="var(--success-color)"; btn.style.color="#000"; }
+        if(btn) { 
+            btn.style.background="var(--success-color)"; 
+            btn.style.borderColor="var(--success-color)"; 
+            btn.style.color="#000"; 
+            btn.innerHTML = "✓";
+        }
         if(navigator.vibrate) navigator.vibrate(50);
     };
 
     window.applyAllDraftCounts = async function() {
-        const inputs = document.querySelectorAll('#draft-table-body input');
-        let count = 0; inputs.forEach(i=>{ if(i.value!=="") count++; });
-        if(count===0) return showAlert("Borrador vacío.");
-        if(!await showConfirm(`¿Aplicar ${count} conteos?`)) return;
+        // Recuperar datos guardados
+        let savedDraft = {};
+        try {
+            const raw = localStorage.getItem(getDraftKey());
+            if (raw) savedDraft = JSON.parse(raw).counts || {};
+        } catch (e) { return showAlert("Error leyendo borrador."); }
+
+        const ids = Object.keys(savedDraft);
+        if(ids.length === 0) return showAlert("Borrador vacío.");
+
+        if(!await showConfirm(`¿Aplicar cambios a ${ids.length} productos?`)) return;
+        
         showLoading("Aplicando...");
-        inputs.forEach(i => {
-            if(i.value!=="") {
-                StateManager.updateProductFieldById(i.closest('tr').dataset.id, 'finales', i.value);
-                const r = i.closest('tr');
-                r.style.opacity="0.5"; r.style.pointerEvents="none";
-                const b = r.querySelector('.btn-icon-apply');
-                if(b) { b.style.background="var(--success-color)"; b.style.color="#000"; }
+        
+        ids.forEach(id => {
+            const data = savedDraft[id];
+            if (data.e !== undefined) StateManager.updateProductFieldById(id, 'entrada', data.e);
+            if (data.f !== undefined) StateManager.updateProductFieldById(id, 'finales', data.f);
+        });
+
+        // Marcar visualmente como completado
+        ids.forEach(id => {
+            const row = document.querySelector(`#draft-table-body tr[data-id="${id}"]`);
+            if (row) {
+                row.style.opacity="0.5"; 
+                const btn = row.querySelector('.btn-icon-apply');
+                if(btn) { btn.innerHTML = "✓"; btn.style.background="var(--success-color)"; btn.style.color="black";}
             }
         });
-        hideLoading(); showAlert("Hecho.");
+
+        hideLoading(); 
+        showAlert("Datos aplicados correctamente.");
+        // Opcional: Cerrar modal automáticamente
+        // setTimeout(() => toggleModal('draftModal', false), 1000);
     };
 
     window.clearDraftData = async function() {
-        if(await showConfirm("¿Borrar todo?")) { localStorage.removeItem(getDraftKey()); handleOpenDraftModal(); }
+        if(await showConfirm("¿Borrar todos los datos del borrador?")) { 
+            localStorage.removeItem(getDraftKey()); 
+            handleOpenDraftModal(); // Recargar vista
+        }
     };
     // =========================================================
     // INICIALIZACIÓN
