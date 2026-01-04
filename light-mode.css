@@ -1,0 +1,288 @@
+/* light-mode.css */
+
+/* * TEMA CLARO PREMIUM - ESTILO SAAS MODERNO
+ * Basado en principios de diseño de interfaces limpias (Stripe, Vercel, Linear)
+ */
+
+body.light-mode {
+    /* --- PALETA DE COLORES --- */
+    
+    /* Fondos */
+    --bg-dark: #F3F4F6;            /* Gris muy suave (Fondo principal) */
+    --bg-primary: #FFFFFF;         /* Blanco puro (Tarjetas, Modales) */
+    --bg-glass: rgba(255, 255, 255, 0.95); /* Vidrio esmerilado blanco */
+    
+    /* Bordes y Separadores */
+    --border-glass: #E5E7EB;       /* Gris claro para bordes */
+    --border-highlight: #D1D5DB;   /* Gris medio para hover/active */
+
+    /* Colores de Acento (Elegantes y Profesionales) */
+    --primary-cyan: #0284C7;       /* Azul Interfaz (Blue-600) - Acciones principales */
+    --primary-magenta: #7C3AED;    /* Violeta (Violet-600) - Degradados sutiles */
+    
+    /* Sombras (Reemplazan al resplandor neón) */
+    --glow-cyan: rgba(2, 132, 199, 0.15);
+    --glow-magenta: rgba(124, 58, 237, 0.15);
+    --glow-success: rgba(5, 150, 105, 0.15);
+    --glow-danger: rgba(220, 38, 38, 0.15);
+
+    /* Estados Semánticos */
+    --success-color: #059669;      /* Verde Esmeralda */
+    --danger-color: #DC2626;       /* Rojo Rubí */
+    --warning-color: #D97706;      /* Ámbar */
+
+    /* Tipografía (Escala de Grises para mejor lectura) */
+    --text-primary: #1F2937;       /* Gris Oscuro (Texto principal) */
+    --text-secondary: #6B7280;     /* Gris Medio (Texto secundario) */
+    --text-headings: #111827;      /* Casi Negro (Títulos) */
+
+    /* Variables Extra para este tema */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --input-bg: #F9FAFB;           /* Fondo gris muy claro para inputs */
+}
+
+/* --- LIMPIEZA VISUAL DEL TEMA OSCURO --- */
+body.light-mode::before {
+    display: none !important; /* Elimina el fondo de estrellas/gradiente oscuro */
+}
+
+/* --- COMPONENTES GLOBALES --- */
+
+/* Contenedores Principales (Estilo Tarjeta Elevada) */
+body.light-mode .header,
+body.light-mode .section-box,
+body.light-mode .modal-content,
+body.light-mode .login-container,
+body.light-mode .responsive-table-wrapper,
+body.light-mode .header-menu,
+body.light-mode .button-container,
+body.light-mode .summary-card {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--border-glass) !important;
+    box-shadow: var(--shadow-sm) !important;
+    border-radius: 8px !important; /* Bordes ligeramente más cuadrados y profesionales */
+    backdrop-filter: blur(12px);
+    color: var(--text-primary) !important;
+}
+
+/* Sombras más fuertes al hacer hover en tarjetas */
+body.light-mode .section-box:hover {
+    box-shadow: var(--shadow-md) !important;
+    transition: box-shadow 0.3s ease;
+}
+
+/* --- TIPOGRAFÍA Y ENCABEZADOS --- */
+body.light-mode h1, 
+body.light-mode h2, 
+body.light-mode h3, 
+body.light-mode h4,
+body.light-mode .modal-title {
+    color: var(--text-headings) !important;
+    text-shadow: none !important; /* Eliminar sombra de texto neón */
+    font-weight: 700;
+}
+
+body.light-mode strong {
+    color: var(--text-headings) !important;
+    text-shadow: none !important;
+}
+
+/* --- FORMULARIOS E INPUTS --- */
+body.light-mode input,
+body.light-mode select,
+body.light-mode textarea,
+body.light-mode .header-date-input,
+body.light-mode #searchInput {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--border-highlight) !important;
+    color: var(--text-primary) !important;
+    box-shadow: var(--shadow-sm) !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease;
+}
+
+/* Foco en inputs (Anillo azul profesional) */
+body.light-mode input:focus,
+body.light-mode select:focus,
+body.light-mode textarea:focus,
+body.light-mode #searchInput:focus {
+    background-color: #FFFFFF !important;
+    border-color: var(--primary-cyan) !important;
+    box-shadow: 0 0 0 3px var(--glow-cyan) !important;
+    outline: none !important;
+}
+
+body.light-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.3); /* Icono de calendario oscuro */
+}
+
+/* --- BOTONES Y BARRA DE HERRAMIENTAS --- */
+body.light-mode .button-container button {
+    background: #FFFFFF;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-glass);
+}
+
+body.light-mode .button-container button:hover {
+    background: #EFF6FF; /* Azul muy pálido */
+    color: var(--primary-cyan);
+    border-color: var(--primary-cyan);
+    box-shadow: var(--shadow-sm);
+}
+
+body.light-mode .btn-primary, 
+body.light-mode .btn-modal.btn-primary,
+body.light-mode #syncButton {
+    background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%) !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+
+body.light-mode .btn-primary:hover {
+    box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.4) !important;
+    transform: translateY(-1px);
+}
+
+/* --- TABLAS DE DATOS --- */
+body.light-mode .responsive-table thead th {
+    background-color: #F8FAFC !important; /* Gris muy claro */
+    color: #475569 !important; /* Gris azulado */
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--border-glass) !important;
+}
+
+body.light-mode .responsive-table tbody td {
+    border-bottom: 1px solid #F1F5F9 !important;
+    color: var(--text-primary);
+}
+
+/* Filas de Categoría (Estilo distintivo suave) */
+body.light-mode .category-row {
+    background-color: #F0F9FF !important; /* Azul cielo muy claro */
+    color: #0369A1 !important; /* Azul oscuro fuerte */
+    border-bottom: 1px solid #BAE6FD !important;
+}
+
+/* Hover en filas */
+body.light-mode #product-list tr:not(.category-row):hover {
+    background-color: #F8FAFC !important;
+}
+
+/* Inputs dentro de tabla */
+body.light-mode .responsive-table td input {
+    background-color: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+}
+
+body.light-mode .responsive-table td input:focus {
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--primary-cyan) !important;
+    box-shadow: 0 0 0 2px var(--glow-cyan) !important;
+}
+
+/* --- MÓDULO DE BORRADOR (DRAFT) --- */
+body.light-mode #draftModal .modal-content {
+    background-color: #F9FAFB !important;
+}
+
+body.light-mode .draft-header-compact {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid var(--border-glass) !important;
+    box-shadow: var(--shadow-sm);
+}
+
+body.light-mode #draft-table th {
+    background-color: #E5E7EB !important;
+    color: #374151 !important;
+}
+
+body.light-mode .product-draft-row input {
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--border-highlight) !important;
+    color: #111827 !important;
+}
+
+body.light-mode .product-draft-row input.differs {
+    background-color: #EFF6FF !important;
+    border-color: var(--primary-cyan) !important;
+    color: var(--primary-cyan) !important;
+    font-weight: 700;
+}
+
+body.light-mode .btn-icon-apply {
+    background-color: transparent;
+    border: 1px solid var(--border-highlight);
+    color: var(--text-secondary);
+}
+
+body.light-mode .btn-icon-apply:hover {
+    background-color: #F0FDF4; /* Verde muy claro */
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+/* --- CALCULADORA Y CONTADOR DE BILLETES --- */
+body.light-mode #calculatorModal .modal-content,
+body.light-mode #billCounterModal .modal-content {
+    border-color: var(--border-glass) !important;
+}
+
+body.light-mode .calculator-grid {
+    background: var(--border-glass) !important;
+    gap: 1px;
+}
+
+body.light-mode .calculator-grid button {
+    background: #FFFFFF !important;
+    color: var(--text-primary) !important;
+}
+
+body.light-mode .calculator-grid button:hover {
+    background: #F3F4F6 !important;
+}
+
+body.light-mode .bill-row {
+    background: #FFFFFF !important;
+    border: 1px solid var(--border-glass) !important;
+    color: var(--text-primary) !important;
+}
+
+body.light-mode .bill-row.inactive {
+    background: #F3F4F6 !important;
+    opacity: 0.6;
+}
+
+/* --- COMPONENTES ESPECÍFICOS --- */
+/* Scrollbars */
+body.light-mode ::-webkit-scrollbar-track { background: #F1F1F1; }
+body.light-mode ::-webkit-scrollbar-thumb { 
+    background: #C1C1C1; 
+    border: 2px solid #F1F1F1; 
+    border-radius: 10px; 
+}
+body.light-mode ::-webkit-scrollbar-thumb:hover { background: #A8A8A8; }
+
+/* Login Branding */
+body.light-mode .branding-section {
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%) !important;
+    border-right: 1px solid var(--border-glass);
+}
+
+body.light-mode .app-title {
+    color: #0C4A6E !important; /* Azul marino profundo */
+}
+
+body.light-mode .logo {
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)) !important;
+}
+
+/* Indicadores de Stock (Corrección de visibilidad) */
+body.light-mode .wh-indicator {
+    border: 1px solid rgba(0,0,0,0.1);
+}
