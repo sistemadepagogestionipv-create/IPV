@@ -2360,6 +2360,9 @@
         <button class="header-button" data-action="menu-open-draft" style="border-left: 3px solid #00E0FF;">
     📝 Borrador de Conteo (Interactivo)
 </button>
+<button class="header-button" data-action="toggle-theme" style="border-left: 3px solid #FFD600;">
+    ☀ Cambiar Tema (Claro/Oscuro)
+</button>
         <button class="header-button" data-action="menu-audit-costs">Auditoría de Costos</button>
         <button class="header-button" data-action="menu-audit-products">Auditoría Prod.</button>
         <button class="header-button" data-action="menu-reset-day">Reiniciar Día</button>
@@ -3083,7 +3086,7 @@
     }
 
     console.log("No se encontraron datos previos. Iniciando en blanco.");
-    const predefinedCategories = ['Aseo Personal', 'Bebidas', 'Carnicos', 'Confituras Variadas', 'Dulces', 'Enlatados', 'Galletas', 'Nevera', 'Pastas', 'Peter', 'Rones', 'Sazones'];
+    const predefinedCategories = ['Aseo personal', 'Bebidas', 'Carnicos', 'Confituras Variadas', 'Dulces', 'Enlatados', 'Galletas', 'Nevera', 'Pastas', 'Peter', 'Rones', 'Sazones'];
     return { products: [], gastos: [], notas: "Inicio de sistema sin datos previos.", categories: predefinedCategories, predefinedNotes: {}, pizzaCalcs: {}, isClosed: false };
 }
     // --- LOGIC & STATE ---
@@ -3123,7 +3126,7 @@
     const StateManager = { subscribe(callback) { subscribers.push(callback); }, _notify() { subscribers.forEach(callback => callback(structuredClone(appData))); }, getState() { return structuredClone(appData); }, setState(data) { appData = data || {}; this._notify(); }, triggerUpdate() { this._notify(); }, updateProductFieldById(productId, field, value) { if (appData.isClosed) return; let parsedValue = value; if (field === 'finales') parsedValue = value === '' ? null : Number(value); else if (['start', 'entrada'].includes(field)) parsedValue = Number(value) || 0; else if (['cost', 'price'].includes(field)) parsedValue = parseFloat(value) || 0; const newProducts = (appData.products || []).map(p => (String(p.id) === String(productId)) ? { ...p, [field]: parsedValue, lastModified: new Date().toISOString() } : p); appData = { ...appData, products: newProducts }; this._notify(); }, addProduct(details) { const newProducts = details.names.map(name => { const startValue = Number(details.start) || 0; return { id: generateUUID(), name, category: details.category, start: startValue, cost: Number(details.cost) || 0, price: Number(details.price) || 0, entrada: 0, finales: startValue, isActive: true, lastModified: new Date().toISOString() }; }); const updatedProducts = [...(appData.products || []), ...newProducts]; const updatedCategories = details.category && !(appData.categories || []).includes(details.category) ? [...(appData.categories || []), details.category] : (appData.categories || []); appData = { ...appData, products: updatedProducts, categories: updatedCategories }; this._notify(); }, addGasto(description, amount, type) { const newGasto = { id: generateUUID(), description, amount, type: type || 'gasto', isActive: true, lastModified: new Date().toISOString() }; appData = { ...appData, gastos: [...(appData.gastos || []), newGasto] }; this._notify(); }, deleteProductById(id) { appData = { ...appData, products: (appData.products || []).map(p => (String(p.id) === String(id)) ? { ...p, isActive: false, lastModified: new Date().toISOString() } : p) }; this._notify(); }, deleteSelectedProducts(ids) { appData = { ...appData, products: (appData.products || []).map(p => ids.has(String(p.id)) ? { ...p, isActive: false, lastModified: new Date().toISOString() } : p) }; this._notify(); }, deleteGastoById(id) { appData = { ...appData, gastos: (appData.gastos || []).map(g => (String(g.id) === String(id)) ? { ...g, isActive: false, lastModified: new Date().toISOString() } : g) }; this._notify(); }, closeDay() { appData = { ...appData, isClosed: true }; this._notify(); }, updateNotes(notes) { if (appData.notas !== notes) { appData = { ...appData, notas: notes }; this._notify(); } }, updateDiferenciaCaja(tipo, monto) { const montoVal = tipo === 'ninguna' ? 0 : parseFloat(monto) || 0; appData = { ...appData, predefinedNotes: { ...(appData.predefinedNotes || {}), diferenciaCaja: { tipo, monto: montoVal } } }; this._notify(); }, updatePizzaCalcs(pizzaData) { appData = { ...appData, pizzaCalcs: { ...pizzaData, lastModified: new Date().toISOString() } }; this._notify(); } };
 
     // --- UI ---
-    let collapsedCategories = new Set(); let areAllCategoriesCollapsed = false; let isZeroStockHidden = false; const PREDEFINED_CATEGORIES = ['Aseo Personal', 'Bebidas', 'Carnicos', 'Confituras Variadas', 'Dulces', 'Enlatados', 'Galletas', 'Nevera', 'Pastas', 'Peter', 'Rones', 'Sazones', 'Insumos'];
+    let collapsedCategories = new Set(); let areAllCategoriesCollapsed = false; let isZeroStockHidden = false; const PREDEFINED_CATEGORIES = ['Aseo personal', 'Bebidas', 'Carnicos', 'Confituras Variadas', 'Dulces', 'Enlatados', 'Galletas', 'Nevera', 'Pastas', 'Peter', 'Rones', 'Sazones', 'Insumos'];
     const DOM = { appVersion: document.getElementById('app-version-display'), loadingOverlay: document.getElementById('loadingOverlay'), loadingMessage: document.getElementById('loadingMessage'), syncIndicator: document.getElementById('sync-indicator'), syncButton: document.getElementById('syncButton'), loginForm: document.getElementById('loginForm'), createForm: document.getElementById('createForm'), loginWrapper: document.getElementById('login-screen-wrapper'), header: document.getElementById('header'), container: document.getElementById('container'), businessTitle: document.getElementById('businessTitle'), notasDia: document.getElementById('notas-dia'), diferenciaTipo: document.getElementById('note-diferencia-tipo'), diferenciaMonto: document.getElementById('note-diferencia-monto'), productList: document.getElementById('product-list'), gastosList: document.getElementById('gastos-list'), totalImporte: document.getElementById("total-importe"), totalGanancias: document.getElementById("total-ganancias"), totalGastosOperativos: document.getElementById("total-gastos-operativos"), gananciaNetaOperativa: document.getElementById("ganancia-neta-operativa"), totalRecogidas: document.getElementById("total-recogidas"), efectivoTeoricoCaja: document.getElementById("efectivo-teorico-caja"), totalStockCost: document.getElementById("total-stock-cost"), totalStockValue: document.getElementById("total-stock-value"), categoryDropdown: document.getElementById('modal-product-category'), totalProductsCount: document.getElementById('total-products-count'), zeroStockCount: document.getElementById('zero-stock-count'), };
     
     function setAppVersion(version) { if (DOM.appVersion) DOM.appVersion.textContent = `Versión ${version}`; }
@@ -3678,8 +3681,40 @@ async function handleGenerateStockPDF() {
             container.appendChild(section);
         }
     }
+function toggleTheme() {
+        const isLight = document.body.classList.toggle('light-mode');
+        
+        // 1. Cargar CSS externo si no existe
+        if (isLight && !document.getElementById('light-mode-sheet')) {
+            const link = document.createElement('link');
+            link.id = 'light-mode-sheet';
+            link.rel = 'stylesheet';
+            link.href = './light-mode.css'; // Asegúrate de que la ruta sea correcta
+            document.head.appendChild(link);
+        }
 
-    const actionHandlers = { 'switchToCreate': () => switchLoginView(true),  'switchToLogin': () => switchLoginView(false), 'localMode': startLocalMode, 'deleteBusinessBtn': handleDeleteBusiness, 'addProductBtn': () => toggleModal("product-modal", true), 'deleteSelectedBtn': handleDeleteSelected, 'toggleAllBtn': toggleAllCategories, 'showZeroStockBtn': handleShowZeroStock, 'toggle-hide-zero-stock': toggleHideZeroStock, 'toggle-admin-mode': toggleAdminMode, 'openCalculatorBtn': () => toggleModal("calculatorModal", true), 'openBillCounterBtn': () => toggleModal("billCounterModal", true), 'refresh-data': handleRefreshData, 'deleteProduct': (target) => handleDeleteProduct(target), 'deleteGasto': (target) => handleDeleteGasto(target), 'addGastoBtn': () => toggleModal("gastos-modal", true), 'menu-sync-warehouse': handleSyncWarehouseCatalog, 'confirmCostUpdate': confirmCostUpdates, 'closeCostModal': () => toggleModal('costUpdateModal', false), 'menu-audit-costs': handleAuditCosts, 'menu-audit-products': () => toggleModal('dataAuditModal', true), 'menu-reset-day': handleResetDay, 'menu-end-of-day': handleEndOfDay, 'menu-clear-cache': handleClearCache, 'menu-change-pin': handleChangePin, 'menu-financial-summary': () => handleFinancialSummary(), 'menu-performance-report': () => toggleModal('performanceReportModal', true), 'menu-compare-periods': () => toggleModal('comparisonModal', true), 'menu-copy-report': handleCopyReport, 'menu-export-day': handleExportDay, 'menu-import-day': handleImportDay, 'menu-about': handleShowAbout, 'menu-change-password': handleChangePassword, 'runAuditBtn': runProductAudit, 'generatePerformanceReportBtn': generatePerformanceReport, 'runComparisonBtn': runComparison, 'copyZeroStockList': handleCopyZeroStockList, 'check-payment-status': handleManualStatusCheck, 'syncButton': (target) => syncToCloud(target), 'logoutBtn': logout, 'open-business-admin': openBusinessAdminPanel, 'toggle-worker': handleUpdateWorker, 'revoke-worker': handleUpdateWorker, 'menu-open-draft': handleOpenDraftModal, 'add-worker-prompt': handleAddWorkerPrompt };
+        // 2. Guardar preferencia
+        localStorage.setItem('ipv_theme_preference', isLight ? 'light' : 'dark');
+        
+        // 3. Feedback visual (Opcional)
+        if(typeof showAlert === 'function') {
+            // Pequeña notificación no intrusiva
+            const msg = isLight ? "Tema Claro Activado" : "Tema Oscuro Activado";
+            // Usamos Toast nativo de Android si existe, si no, nada (para no molestar)
+            if (typeof sendAndroidNotification === 'function') sendAndroidNotification("Tema", msg);
+        }
+    }
+
+    // Función para inicializar el tema al cargar la app
+    function initTheme() {
+        const savedTheme = localStorage.getItem('ipv_theme_preference');
+        if (savedTheme === 'light') {
+            toggleTheme(); // Esto cargará el CSS y pondrá la clase
+            // Corregir estado si toggle lo invirtió (caso raro de doble llamada)
+            if(!document.body.classList.contains('light-mode')) document.body.classList.add('light-mode');
+        }
+    }
+    const actionHandlers = { 'switchToCreate': () => switchLoginView(true), 'toggle-theme': toggleTheme, 'switchToLogin': () => switchLoginView(false), 'localMode': startLocalMode, 'deleteBusinessBtn': handleDeleteBusiness, 'addProductBtn': () => toggleModal("product-modal", true), 'deleteSelectedBtn': handleDeleteSelected, 'toggleAllBtn': toggleAllCategories, 'showZeroStockBtn': handleShowZeroStock, 'toggle-hide-zero-stock': toggleHideZeroStock, 'toggle-admin-mode': toggleAdminMode, 'openCalculatorBtn': () => toggleModal("calculatorModal", true), 'openBillCounterBtn': () => toggleModal("billCounterModal", true), 'refresh-data': handleRefreshData, 'deleteProduct': (target) => handleDeleteProduct(target), 'deleteGasto': (target) => handleDeleteGasto(target), 'addGastoBtn': () => toggleModal("gastos-modal", true), 'menu-sync-warehouse': handleSyncWarehouseCatalog, 'confirmCostUpdate': confirmCostUpdates, 'closeCostModal': () => toggleModal('costUpdateModal', false), 'menu-audit-costs': handleAuditCosts, 'menu-audit-products': () => toggleModal('dataAuditModal', true), 'menu-reset-day': handleResetDay, 'menu-end-of-day': handleEndOfDay, 'menu-clear-cache': handleClearCache, 'menu-change-pin': handleChangePin, 'menu-financial-summary': () => handleFinancialSummary(), 'menu-performance-report': () => toggleModal('performanceReportModal', true), 'menu-compare-periods': () => toggleModal('comparisonModal', true), 'menu-copy-report': handleCopyReport, 'menu-export-day': handleExportDay, 'menu-import-day': handleImportDay, 'menu-about': handleShowAbout, 'menu-change-password': handleChangePassword, 'runAuditBtn': runProductAudit, 'generatePerformanceReportBtn': generatePerformanceReport, 'runComparisonBtn': runComparison, 'copyZeroStockList': handleCopyZeroStockList, 'check-payment-status': handleManualStatusCheck, 'syncButton': (target) => syncToCloud(target), 'logoutBtn': logout, 'open-business-admin': openBusinessAdminPanel, 'toggle-worker': handleUpdateWorker, 'revoke-worker': handleUpdateWorker, 'menu-open-draft': handleOpenDraftModal, 'add-worker-prompt': handleAddWorkerPrompt };
     function setupEventListeners() { 
         document.body.addEventListener("submit", handleFormSubmit); 
         document.body.addEventListener("click", handleGlobalClick); 
@@ -3715,6 +3750,7 @@ async function handleGenerateStockPDF() {
     }
 
     async function main() {
+        initTheme();
         if (checkInitialLockStatus()) { console.log("Bloqueado al inicio."); return; }
         
         // Inyectar HTML de Insumos antes de inicializar la lógica
@@ -3845,6 +3881,7 @@ async function handleGenerateStockPDF() {
     }
 
     // 2. RENDERIZAR FILAS
+   // 2. RENDERIZAR FILAS (CON DATOS PRE-CARGADOS DEL IPV)
     function renderDraftRows(products) {
         const tbody = document.getElementById('draft-table-body');
         if (!tbody) return;
@@ -3872,7 +3909,7 @@ async function handleGenerateStockPDF() {
             const isCollapsed = draftCollapsedCategories.has(category);
             const icon = isCollapsed ? '►' : '▼';
 
-            // Fila Categoría (colspan 5)
+            // Fila Categoría
             const catRow = document.createElement('tr');
             catRow.className = "category-row";
             catRow.onclick = () => window.toggleDraftCategory(category);
@@ -3882,13 +3919,34 @@ async function handleGenerateStockPDF() {
             tbody.appendChild(catRow);
 
             productsByCategory[category].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-                // Recuperar datos guardados. Estructura: { f: valor, e: valor }
                 const data = savedDraft[p.id] || {};
-                const draftFisico = data.f !== undefined ? data.f : "";
-                const draftEntrada = data.e !== undefined ? data.e : "";
                 
-                const diffClassF = (draftFisico !== "" && parseFloat(draftFisico) !== p.finales) ? 'differs' : '';
-                const diffClassE = (draftEntrada !== "" && parseFloat(draftEntrada) !== (p.entrada || 0)) ? 'differs' : '';
+                // === LÓGICA DE VISUALIZACIÓN ===
+                // 1. Si existe un valor en el borrador (data.e/f), se usa ese (prioridad).
+                // 2. Si no, se usa el valor actual del sistema (p.entrada / p.finales).
+                // 3. Mostramos vacío ("") si es 0 en entradas para limpiar la vista, o el número si es > 0.
+                
+                // --- ENTRADAS ---
+                let valEntrada;
+                if (data.e !== undefined) {
+                    valEntrada = data.e; // Valor modificado en borrador
+                } else {
+                    valEntrada = (p.entrada && p.entrada !== 0) ? p.entrada : ""; // Valor original del IPV
+                }
+
+                // --- FINALES (FÍSICO) ---
+                let valFinales;
+                if (data.f !== undefined) {
+                    valFinales = data.f; // Valor modificado en borrador
+                } else {
+                    // Si p.finales es null o undefined, mostramos vacío. Si es 0, mostramos 0 (stock agotado).
+                    valFinales = (p.finales !== undefined && p.finales !== null) ? p.finales : "";
+                }
+
+                // Colorear solo si el valor del borrador es diferente al del sistema
+                // Nota: Usamos '!=' para no discriminar entre 0 y "0"
+                const diffClassE = (data.e !== undefined && data.e != (p.entrada || 0)) ? 'differs' : '';
+                const diffClassF = (data.f !== undefined && data.f != (p.finales || 0)) ? 'differs' : '';
 
                 const tr = document.createElement('tr');
                 tr.dataset.id = p.id;
@@ -3899,11 +3957,11 @@ async function handleGenerateStockPDF() {
                     <td title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</td>
                     <td style="color: var(--text-secondary);">${p.start}</td>
                     <td>
-                        <input type="number" class="draft-input input-entrada ${diffClassE}" value="${draftEntrada}" placeholder="-" 
+                        <input type="number" class="draft-input input-entrada ${diffClassE}" value="${valEntrada}" placeholder="-" 
                                oninput="window.saveSingleDraftInput(this, '${p.id}', 'e')">
                     </td>
                     <td>
-                        <input type="number" class="draft-input ${diffClassF}" value="${draftFisico}" placeholder="-" 
+                        <input type="number" class="draft-input ${diffClassF}" value="${valFinales}" placeholder="-" 
                                oninput="window.saveSingleDraftInput(this, '${p.id}', 'f')">
                     </td>
                     <td>
