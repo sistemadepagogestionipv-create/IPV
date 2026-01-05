@@ -2,12 +2,15 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gestión IPV @EricksProductions</title>
+    
+    <link rel="manifest" href="./manifest.json">
+    
+    <meta name="theme-color" content="#0A0E1A">
+    
     <link rel="icon" type="image/png" href="./img/Logo.png">
-
-
-</head>
+    </head>
 <style>
    /*
      * 0. IMPORTS & GLOBAL RESET
@@ -2737,7 +2740,20 @@
 
 <!-- Lógica Principal de la App -->
 <script>
-
+// =========================================================
+// 1. REGISTRO DEL SERVICE WORKER (PWA OFFLINE)
+// =========================================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('IPV ServiceWorker registrado con éxito:', registration.scope);
+            })
+            .catch(error => {
+                console.log('Fallo al registrar ServiceWorker:', error);
+            });
+    });
+}
 (function() { 
     const APP_VERSION = "3.4 - Smart Autocomplete"; 
 
